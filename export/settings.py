@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+import dotenv
+dotenv.load_dotenv()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -93,7 +96,7 @@ WSGI_APPLICATION = 'export.wsgi.application'
 # }
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('postgresql://gk:2c0vgdzl8D1IXxNBZ6g2JCucZUmlLN8k@dpg-d0vv66vdiees73f9fpt0-a/gk_database'),
+        default=os.environ.get('postgresql://gk:2c0vgdzl8D1IXxNBZ6g2JCucZUmlLN8k@dpg-d0vv66vdiees73f9fpt0-a.singapore-postgres.render.com/gk_database'),
         conn_max_age=600
     )
 }
