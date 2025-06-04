@@ -80,22 +80,22 @@ WSGI_APPLICATION = 'export.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'gk_database',
-#         'USER': 'gk',  # or the user you created
-#         'PASSWORD': '1234',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('postgresql://gk:2c0vgdzl8D1IXxNBZ6g2JCucZUmlLN8k@dpg-d0vv66vdiees73f9fpt0-a/gk_database'),
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'gk_database',
+        'USER': 'gk',  # or the user you created
+        'PASSWORD': '1234',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default=os.environ.get('postgresql://gk:2c0vgdzl8D1IXxNBZ6g2JCucZUmlLN8k@dpg-d0vv66vdiees73f9fpt0-a/gk_database'),
+#         conn_max_age=600
+#     )
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
