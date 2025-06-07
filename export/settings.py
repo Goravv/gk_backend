@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-# import dj_database_url
-# import dotenv
-# dotenv.load_dotenv()
+import dj_database_url
+import dotenv
+dotenv.load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -60,25 +60,25 @@ TEMPLATES = [
 WSGI_APPLICATION = 'export.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'gk_database_final',
-        'USER': 'gk',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
-    }
-}
 # DATABASES = {
-#     'default': dj_database_url.config(
-#         default=os.environ.get('postgresql://gk:ZvuuVpkK2mXHoOHgRxnqhwjBdGAPuNwg@dpg-d121ui49c44c73frir30-a.singapore-postgres.render.com/gk_database_n5ow'),
-#         conn_max_age=600
-#     )
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'gk_database_final',
+#         'USER': 'gk',
+#         'PASSWORD': '1234',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#         'OPTIONS': {
+#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+#         },
+#     }
 # }
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get('postgresql://gk:ZvuuVpkK2mXHoOHgRxnqhwjBdGAPuNwg@dpg-d121ui49c44c73frir30-a.singapore-postgres.render.com/gk_database_n5ow'),
+        conn_max_age=600
+    )
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
