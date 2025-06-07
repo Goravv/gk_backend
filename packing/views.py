@@ -5,15 +5,37 @@ from .models import Packing, Stock,PackingDetail
 from .serializers import PackingSerializer, StockSerializer,PackingDetailSerializer
 from asstimate.models import MergedItem  # Your estimate app
 from rest_framework import generics
+from client.models import Client
+import pandas as pd
+from io import BytesIO
 
 class PackingViewSet(viewsets.ModelViewSet):
-    queryset = Packing.objects.all()
+    queryset=Packing.objects.all()
     serializer_class = PackingSerializer
+    def get_queryset(self):
+        client_name = self.request.query_params.get('client')
+
+        if client_name:
+            try:
+                client = Client.objects.get(client_name=client_name)
+                return Packing.objects.select_related("client").filter(client=client)
+            except Client.DoesNotExist:
+                return Packing.objects.none()
+        return Packing.objects.all()
 
     def create(self, request, *args, **kwargs):
         data = request.data
         part_no = data.get('part_no')
         qty = int(data.get('qty', 0))
+        client_name = data.get('client')
+
+        if not client_name:
+            return Response({"error": "Client name is required"}, status=400)
+
+        try:
+            client = Client.objects.get(client_name=client_name)
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client name"}, status=400)
 
         try:
             stock = Stock.objects.get(part_no=part_no)
@@ -22,84 +44,29 @@ class PackingViewSet(viewsets.ModelViewSet):
             stock_qty = 0
 
         data['stock_qty'] = stock_qty
+        data['client'] = client.id  # set client ID for serializer
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # def destroy(self, request, *args, **kwargs):
-    #     instance = self.get_object()
-    #     part_no = instance.part_no
-    #     qty_to_remove = instance.qty
-
-    #     try:
-    #         stock = Stock.objects.get(part_no=part_no)
-    #         stock.qty = max(stock.qty - qty_to_remove, 0)
-    #         stock.save()
-    #     except Stock.DoesNotExist:
-    #         pass
-
-    #     self.perform_destroy(instance)
-    #     return Response(status=status.HTTP_204_NO_CONTENT)
-    
-
-    # def destroy(self, request, *args, **kwargs):
-    #     part_no = request.data.get("part_no")
-    #     qty = int(request.data.get("qty", 0))
-
-    #     try:
-    #         packing = Packing.objects.get(part_no=part_no)
-    #     except Packing.DoesNotExist:
-    #         return Response({"error": "Packing item not found"}, status=404)
-
-    # # Adjust stock quantity
-    #     try:
-    #         stock = Stock.objects.get(part_no=part_no)
-    #         stock.qty = max(stock.qty - qty, 0)
-
-    #         if stock.qty == 0:
-    #             stock.delete()
-    #         else:
-    #             stock.save()
-    #     except Stock.DoesNotExist:
-    #         pass
-
-    # # Update packing stock_qty based on new stock (if exists)
-    #     try:
-    #        packing.stock_qty = Stock.objects.get(part_no=part_no).qty
-    #     except Stock.DoesNotExist:
-    #         packing.stock_qty = 0
-
-    # # Adjust packing qty
-    #     packing.qty = max(packing.qty - qty, 0)
-
-    #     if packing.qty == 0:
-    #         packing.delete()
-    #     else:
-    #         packing.save()
-
-    # # Update or delete related PackingDetail
-    #     try:
-    #         detail = PackingDetail.objects.get(part_no=part_no)
-    #         detail.total_qty = max(detail.total_qty - qty, 0)
-
-    #         if detail.total_qty == 0:
-    #            detail.delete()
-    #         else:
-    #             detail.save()
-    #     except PackingDetail.DoesNotExist:
-    #         pass
-
-    #     return Response({"success": True}, status=204)
-
-
     @action(detail=False, methods=['post'], url_path='delete-by-partno')
     def delete_by_partno(self, request):
         part_no = request.data.get("part_no")
         qty = int(request.data.get("qty", 0))
+        client_name = request.data.get("client")
+
+        if not client_name:
+            return Response({"error": "Client name is required"}, status=400)
 
         try:
-            packing = Packing.objects.get(part_no=part_no)
+            client = Client.objects.get(client_name=client_name)
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client name"}, status=400)
+
+        try:
+            packing = Packing.objects.get(part_no=part_no, client=client)
         except Packing.DoesNotExist:
             return Response({"error": "Packing item not found"}, status=404)
 
@@ -127,75 +94,151 @@ class PackingViewSet(viewsets.ModelViewSet):
         try:
             details = PackingDetail.objects.filter(part_no=part_no)
             for detail in details:
-              detail.total_qty = max(detail.total_qty - qty, 0)
-              if detail.total_qty == 0:
-                detail.delete()
-              else:
-                detail.save()
-
+                detail.total_qty = max(detail.total_qty - qty, 0)
+                if detail.total_qty == 0:
+                    detail.delete()
+                else:
+                    detail.save()
         except PackingDetail.DoesNotExist:
             pass
 
         return Response({"success": True}, status=204)
+
     @action(detail=False, methods=['post'], url_path='copy-from-estimate')
     def copy_from_estimate(self, request):
+        client_name = request.data.get('client')
+
+        if not client_name:
+            return Response({"error": "Client name is required"}, status=400)
+
+        try:
+            client = Client.objects.get(client_name=client_name)
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client name"}, status=400)
+
         merged_items = MergedItem.objects.all()
         created_or_updated = []
 
         for item in merged_items:
-            part_no = item.part_no
-            description = item.description
-            qty = item.qty
+            if item.client==client:
+                part_no = item.part_no
+                description = item.description
+                qty = item.qty
 
-            try:
-                stock = Stock.objects.get(part_no=part_no)
-                stock_qty = stock.qty
-            except Stock.DoesNotExist:
-                stock_qty = 0
+                try:
+                    stock = Stock.objects.get(part_no=part_no)
+                    stock_qty = stock.qty
+                except Stock.DoesNotExist:
+                    stock_qty = 0
 
-            packing, _ = Packing.objects.update_or_create(
-                part_no=part_no,
-                defaults={
-                    'description': description,
-                    'qty': qty,
-                    'stock_qty': stock_qty
-                }
-            )
-            created_or_updated.append(packing)
+                packing, _ = Packing.objects.update_or_create(
+                    client=client,
+                    part_no=part_no,
+                    defaults={
+                        'description': description,
+                        'qty': qty,
+                        'stock_qty': stock_qty
+                    }
+                )
+                created_or_updated.append(packing)
 
         serializer = self.get_serializer(created_or_updated, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='sync-stock')
+    def sync_stock_qty(self, request):
+        updated = 0
+        not_found = []
+
+        all_packing = Packing.objects.all()
+        for packing in all_packing:
+            try:
+                stock = Stock.objects.get(part_no=packing.part_no)
+                packing.stock_qty = stock.qty
+                packing.save()
+                updated += 1
+            except Stock.DoesNotExist:
+                not_found.append(packing.part_no)
+
+        return Response({
+            "message": "Stock quantities synced.",
+            "updated_count": updated,
+            "not_found_part_nos": not_found
+        }, status=status.HTTP_200_OK)
+
 
 class StockViewSet(viewsets.ModelViewSet):
     queryset = Stock.objects.all()
     serializer_class = StockSerializer
 
-    def create(self, request, *args, **kwargs):
-        data = request.data
-        part_no = data.get('part_no')
-        qty = int(data.get('qty', 0))
+    @action(detail=False, methods=["post"], url_path="upload")
+    def upload_excel(self, request):
+        excel_file = request.FILES.get("file")
+        if not excel_file:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
-        stock, _ = Stock.objects.update_or_create(
-            part_no=part_no,
-            defaults={
-                'description': data.get('description'),
-                'qty': qty
-            }
-        )
-
-        # Update Packing if exists
         try:
-            packing = Packing.objects.get(part_no=part_no)
-            packing.stock_qty = qty
-            packing.save()
-        except Packing.DoesNotExist:
-            pass
+            df = pd.read_excel(BytesIO(excel_file.read()))
+            updated = 0
+            created = 0
 
-        serializer = self.get_serializer(stock)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            for _, row in df.iterrows():
+                part_no = row["part_no"]
+                description = row["description"]
+                qty = row["qty"]
 
+                stock_obj, created_flag = Stock.objects.get_or_create(part_no=part_no, defaults={
+                    "description": description,
+                    "qty": qty
+                })
+
+                if not created_flag:
+                    stock_obj.qty += qty
+                    stock_obj.description = description  # Optional: update description too
+                    stock_obj.save()
+                    updated += 1
+                else:
+                    created += 1
+
+            return Response({
+                "message": "Stock Excel processed successfully",
+                "created": created,
+                "updated": updated
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
     queryset = PackingDetail.objects.all()
     serializer_class = PackingDetailSerializer
+
+    def get_queryset(self):
+        client_name = self.request.query_params.get('client')
+        if client_name:
+            try:
+                client = Client.objects.get(client_name=client_name)
+                return PackingDetail.objects.filter(client=client)
+            except Client.DoesNotExist:
+                return PackingDetail.objects.none()
+        return super().get_queryset()
+
+    def create(self, request, *args, **kwargs):
+        client_name = request.data.get('client')
+        if not client_name:
+            return Response({"error": "Client name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = Client.objects.get(client_name=client_name)
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client name"}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data.copy()
+        data['client'] = client.client_name  # Set the FK ID in data
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

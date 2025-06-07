@@ -1,7 +1,11 @@
 from django.db import models
+from client.models import Client
 
 class Item(models.Model):
-    part_no = models.CharField(max_length=100, primary_key=True)
+    id=None
+    client_name = models.ForeignKey(Client, on_delete=models.CASCADE,null=True,
+        blank=True)
+    part_no = models.CharField(max_length=100)
     description = models.TextField()
     qty = models.IntegerField()
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -11,5 +15,10 @@ class Item(models.Model):
     billed_qty = models.IntegerField(null=True, blank=True)
     total_amt_billed_qty = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['client_name', 'part_no'], name='unique_client_part')
+        ]
+
     def __str__(self):
-        return self.part_no
+        return f"{self.client_name} - {self.part_no}"
