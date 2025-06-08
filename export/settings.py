@@ -10,7 +10,9 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", 'django-insecure-your-dev-secret-key
 # DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 DEBUG=False
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
+# ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = ["gk-backend-c2ih.onrender.com"]
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -75,10 +77,11 @@ WSGI_APPLICATION = 'export.wsgi.application'
 # }
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('postgresql://gk:ZvuuVpkK2mXHoOHgRxnqhwjBdGAPuNwg@dpg-d121ui49c44c73frir30-a.singapore-postgres.render.com/gk_database_n5ow'),
+        default=os.environ.get("DATABASE_URL"),  # Put actual URL in Render env variable
         conn_max_age=600
     )
 }
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -136,3 +139,5 @@ else:
     SESSION_COOKIE_SECURE = True
 
 CSRF_COOKIE_HTTPONLY = False  # Optional: Allow JS access if needed (only for reading)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
