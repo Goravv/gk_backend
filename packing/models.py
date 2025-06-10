@@ -31,6 +31,7 @@ class PackingDetail(models.Model):
     description = models.TextField(blank=True, null=True)
     hsn_no = models.CharField(max_length=20, blank=True, null=True)
     gst = models.IntegerField(blank=True, null=True)
+    brand_name=models.CharField(max_length=100, blank=True, null=True)
 
     total_packing_qty = models.IntegerField(blank=True, null=True)
     mrp_invoice = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -54,7 +55,7 @@ class PackingDetail(models.Model):
     width = models.IntegerField(blank=True, null=True)
     height = models.IntegerField(blank=True, null=True)
     cbm = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
-    brand_name=models.CharField()
+    
 
     class Meta:
         unique_together = ('client', 'part_no')

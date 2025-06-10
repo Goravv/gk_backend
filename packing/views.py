@@ -252,7 +252,7 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
             return Response({"error": "Invalid client name"}, status=status.HTTP_400_BAD_REQUEST)
 
         data = request.data.copy()
-        data['client'] = client.client_name  # Set the FK ID in data
+        data['client'] = client.client_name  
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
