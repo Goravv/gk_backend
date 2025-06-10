@@ -19,6 +19,7 @@ class Stock(models.Model):
     part_no = models.CharField(max_length=100, primary_key=True)
     description = models.TextField()
     qty = models.IntegerField()
+    brand_name=models.CharField()
     
     def __str__(self):
         return self.part_no
@@ -29,11 +30,11 @@ class PackingDetail(models.Model):
     part_no = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     hsn_no = models.CharField(max_length=20, blank=True, null=True)
-    gst = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    gst = models.IntegerField(blank=True, null=True)
 
     total_packing_qty = models.IntegerField(blank=True, null=True)
-    box_mrp = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    update_box_mrp = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    mrp_invoice = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    mrp_box = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     total_mrp = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     npr = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     nsr = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
@@ -44,15 +45,16 @@ class PackingDetail(models.Model):
     case_no_end = models.IntegerField(blank=True, null=True)
     total_case = models.IntegerField(blank=True, null=True)
 
-    net_wt = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    gross_wt = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    total_net_wt = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    total_gross_wt = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    net_wt = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
+    gross_wt = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
+    total_net_wt = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
+    total_gross_wt = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
 
-    length = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    width = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    height = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    length = models.IntegerField(blank=True, null=True)
+    width = models.IntegerField(blank=True, null=True)
+    height = models.IntegerField(blank=True, null=True)
     cbm = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
+    brand_name=models.CharField()
 
     class Meta:
         unique_together = ('client', 'part_no')

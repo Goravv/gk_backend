@@ -11,7 +11,8 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", 'django-insecure-your-dev-secret-key
 DEBUG=False
 
 # ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
-ALLOWED_HOSTS = ["gk-backend-c2ih.onrender.com"]
+ALLOWED_HOSTS = ["gk-backend-c2ih.onrender.com", "localhost", "127.0.0.1"]
+
 
 
 INSTALLED_APPS = [

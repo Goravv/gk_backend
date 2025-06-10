@@ -179,31 +179,48 @@ class StockViewSet(viewsets.ModelViewSet):
 
         try:
             df = pd.read_excel(BytesIO(excel_file.read()))
-            updated = 0
-            created = 0
+            required_columns = {"part_no", "description", "qty", "brand_name"}
+
+            if not required_columns.issubset(df.columns):
+                return Response({"error": f"Missing columns. Required: {required_columns}"}, status=400)
+
+            part_nos = df["part_no"].astype(str).str.strip().tolist()
+            existing_stocks = Stock.objects.in_bulk(part_nos)  # Returns dict: {part_no: Stock instance}
+
+            to_create = []
+            to_update = []
 
             for _, row in df.iterrows():
-                part_no = row["part_no"]
-                description = row["description"]
-                qty = row["qty"]
+                part_no = str(row["part_no"]).strip()
+                description = str(row["description"]).strip()
+                qty = int(row["qty"])
+                brand_name = str(row["brand_name"]).strip()
 
-                stock_obj, created_flag = Stock.objects.get_or_create(part_no=part_no, defaults={
-                    "description": description,
-                    "qty": qty
-                })
-
-                if not created_flag:
-                    stock_obj.qty += qty
-                    stock_obj.description = description  # Optional: update description too
-                    stock_obj.save()
-                    updated += 1
+                if part_no in existing_stocks:
+                    stock = existing_stocks[part_no]
+                    stock.qty += qty
+                    stock.description = description
+                    stock.brand_name = brand_name
+                    to_update.append(stock)
                 else:
-                    created += 1
+                    stock = Stock(
+                        part_no=part_no,
+                        description=description,
+                        qty=qty,
+                        brand_name=brand_name
+                    )
+                    to_create.append(stock)
+
+        # Perform bulk operations
+            if to_create:
+                Stock.objects.bulk_create(to_create, batch_size=1000)
+            if to_update:
+                Stock.objects.bulk_update(to_update, ["qty", "description", "brand_name"], batch_size=1000)
 
             return Response({
                 "message": "Stock Excel processed successfully",
-                "created": created,
-                "updated": updated
+                "created": len(to_create),
+                "updated": len(to_update)
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
