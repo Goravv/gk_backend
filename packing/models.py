@@ -12,15 +12,18 @@ class Packing(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['client', 'part_no'], name='unique_client_partno')
-            ]
+        ]
+
     def __str__(self):
         return self.part_no
+
+
 class Stock(models.Model):
     part_no = models.CharField(max_length=100, primary_key=True)
     description = models.TextField()
     qty = models.IntegerField()
-    brand_name=models.CharField()
-    
+    brand_name = models.CharField(max_length=100)
+
     def __str__(self):
         return self.part_no
 
@@ -31,7 +34,7 @@ class PackingDetail(models.Model):
     description = models.TextField(blank=True, null=True)
     hsn_no = models.CharField(max_length=20, blank=True, null=True)
     gst = models.IntegerField(blank=True, null=True)
-    brand_name=models.CharField(max_length=100, blank=True, null=True)
+    brand_name = models.CharField(max_length=100, blank=True, null=True)
 
     total_packing_qty = models.IntegerField(blank=True, null=True)
     mrp_invoice = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -55,10 +58,18 @@ class PackingDetail(models.Model):
     width = models.IntegerField(blank=True, null=True)
     height = models.IntegerField(blank=True, null=True)
     cbm = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
+
     
 
-    class Meta:
-        unique_together = ('client', 'part_no')
+    def __str__(self):
+        return f"{self.client.client_name} - {self.part_no}"
+    
+    from django.db import models
+
+class NetWeight(models.Model):
+    part_no = models.CharField(max_length=100, primary_key=True)
+    net_wt = models.DecimalField(max_digits=10, decimal_places=3)
 
     def __str__(self):
-        return f"{self.client.name} - {self.part_no}"
+        return f"{self.part_no} - {self.net_wt}"
+

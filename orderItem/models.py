@@ -2,9 +2,7 @@ from django.db import models
 from client.models import Client
 
 class Item(models.Model):
-    id=None
-    client_name = models.ForeignKey(Client, on_delete=models.CASCADE,null=True,
-        blank=True)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True)
     part_no = models.CharField(max_length=100)
     description = models.TextField()
     qty = models.IntegerField()
@@ -17,8 +15,8 @@ class Item(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['client_name', 'part_no'], name='unique_client_part')
+            models.UniqueConstraint(fields=['client', 'part_no'], name='unique_client_part')
         ]
 
     def __str__(self):
-        return f"{self.client_name} - {self.part_no}"
+        return f"{self.client} - {self.part_no}"

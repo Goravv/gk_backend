@@ -1,4 +1,3 @@
-# models.py (where MergedItem is defined)
 from django.db import models
 from client.models import Client
 
@@ -13,8 +12,13 @@ class MergedItem(models.Model):
     tax_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     hsn = models.CharField(max_length=100, null=True, blank=True)
 
-    # New foreign key field
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    # Foreign key to Client model
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="merged_items")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["part_no", "client"], name="unique_mergeditem_per_client")
+        ]
 
     def __str__(self):
-        return self.part_no
+        return f"{self.part_no} ({self.client.client_name} - {self.client.marka})"

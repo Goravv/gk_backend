@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import Packing, Stock,PackingDetail
+from .models import Packing, Stock,PackingDetail,NetWeight
 
 class PackingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,3 +16,11 @@ class PackingDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = PackingDetail
         fields = '__all__'
+
+
+
+
+class NetWeightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NetWeight
+        fields = ['part_no', 'net_wt']
