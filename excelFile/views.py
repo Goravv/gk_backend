@@ -4,7 +4,7 @@ from rest_framework import status
 from .models import ExcelData
 from .serializers import ExcelDataSerializer
 import pandas as pd
-from django.core.files.storage import default_storage
+
 
 class UploadExcelView(APIView):
     def post(self, request, format=None):
@@ -12,8 +12,11 @@ class UploadExcelView(APIView):
         if not file:
             return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
-        path = default_storage.save('temp.xlsx', file)
-        df = pd.read_excel(default_storage.path(path))
+        try:
+            df = pd.read_excel(file, engine='openpyxl')  # use in-memory, no disk
+        except Exception as e:
+            return Response({"error": f"Failed to read Excel file: {str(e)}"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         # Normalize column names
         df.columns = [col.strip() for col in df.columns]
@@ -23,21 +26,20 @@ class UploadExcelView(APIView):
             'MRP - per unit', 'HSN Code', 'GST %'
         ]
 
-        if not all(col in df.columns for col in required_columns):
-            return Response({"error": "Missing one or more required columns."},
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return Response({"error": f"Missing columns: {', '.join(missing_columns)}"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Drop rows without item code
         df = df.dropna(subset=['Item Code'])
 
-        # Optional: convert HSN code to int
         try:
             df['HSN Code'] = df['HSN Code'].fillna(0).astype(int)
         except Exception as e:
             return Response({"error": f"HSN Code conversion failed: {str(e)}"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Save to database
+        count = 0
         for _, row in df.iterrows():
             ExcelData.objects.update_or_create(
                 item_code=row['Item Code'],
@@ -49,8 +51,9 @@ class UploadExcelView(APIView):
                     'gst_percent': row['GST %'],
                 }
             )
+            count += 1
 
-        return Response({"message": "Excel data imported successfully."},
+        return Response({"message": f"{count} rows imported successfully."},
                         status=status.HTTP_201_CREATED)
 
 
@@ -68,11 +71,11 @@ class ExcelDataDetailView(APIView):
             serializer = ExcelDataSerializer(obj)
             return Response(serializer.data)
         except ExcelData.DoesNotExist:
-            return Response({"error": "Not found"}, status=404)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class DeleteAllExcelDataView(APIView):
     def delete(self, request):
-        ExcelData.objects.all().delete()
-        return Response({"message": "All data deleted"},
+        deleted_count, _ = ExcelData.objects.all().delete()
+        return Response({"message": f"{deleted_count} entries deleted"},
                         status=status.HTTP_204_NO_CONTENT)
