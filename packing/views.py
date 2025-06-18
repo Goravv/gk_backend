@@ -10,7 +10,7 @@ import pandas as pd
 from io import BytesIO
 from rest_framework.decorators import api_view
 from decimal import Decimal
-
+from rest_framework.views import APIView
 
 class PackingViewSet(viewsets.ModelViewSet):
     queryset = Packing.objects.all()
@@ -277,11 +277,6 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
 
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import PackingDetail
-from client.models import Client
 
 
 class UpdatePackingDetailByCase(APIView):
@@ -291,7 +286,8 @@ class UpdatePackingDetailByCase(APIView):
         marka = request.data.get('marka')
         updates = request.data.get('updates', {})
 
-        if not case_no_start or not client_name or  not marka or not updates :
+
+        if not case_no_start:
             return Response({
                 "error": "case_no_start, client, marka, and updates are required"
             }, status=status.HTTP_400_BAD_REQUEST)

@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", 'django-insecure-your-dev-secret-key
 DEBUG=False
 
 # ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
-ALLOWED_HOSTS = ["gk-backend-c2ih.onrender.com", "localhost", "127.0.0.1","192.168.1.7","192.168.1.9","192.168.1.8"]
+ALLOWED_HOSTS = ["gk-backend-c2ih.onrender.com", "localhost", "127.0.0.1","192.168.1.7","192.168.1.10","192.168.1.8"]
 
 
 
@@ -111,7 +111,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.1.6:3000",
     "http://192.168.1.7:3000",
     "http://192.168.1.4:3000",
-    "http://192.168.1.9:3000",
+    "http://192.168.1.10:3000",
     "http://192.168.1.8:3000",
     "http://192.168.172.203:3000",
 ]
@@ -123,7 +123,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://192.168.1.6:3000",
     "http://192.168.1.7:3000",
     "http://192.168.1.4:3000",
-    "http://192.168.1.9:3000",
+    "http://192.168.1.10:3000",
     "http://192.168.1.8:3000",
     "http://192.168.172.203:3000",
 ]

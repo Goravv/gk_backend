@@ -63,8 +63,6 @@ class PackingDetail(models.Model):
 
     def __str__(self):
         return f"{self.client.client_name} - {self.part_no}"
-    
-    from django.db import models
 
 class NetWeight(models.Model):
     part_no = models.CharField(max_length=100, primary_key=True)
