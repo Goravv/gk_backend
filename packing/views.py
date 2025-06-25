@@ -8,9 +8,12 @@ from rest_framework import generics
 from client.models import Client
 import pandas as pd
 from io import BytesIO
-from rest_framework.decorators import api_view
 from decimal import Decimal
 from rest_framework.views import APIView
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.http import JsonResponse
+
+
 
 class PackingViewSet(viewsets.ModelViewSet):
     queryset = Packing.objects.all()
@@ -276,9 +279,6 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-
-
-
 class UpdatePackingDetailByCase(APIView):
     def post(self, request):
         case_no_start = request.data.get('case_no_start')
@@ -315,33 +315,43 @@ class UpdatePackingDetailByCase(APIView):
     
 
 
-@api_view(['GET', 'POST'])
-def net_weight_view(request):
-    if request.method == 'GET':
-        part_no = request.query_params.get('part_no')
-        try:
-            item = NetWeight.objects.get(part_no=part_no)
-            return Response({'net_wt': item.net_wt}, status=status.HTTP_200_OK)
-        except NetWeight.DoesNotExist:
-            return Response({'net_wt': 0}, status=status.HTTP_200_OK)
+class NetWeightView(APIView):
+    def get(self, request):
+        part_no = request.query_params.get("part_no")
 
-    elif request.method == 'POST':
-        part_no = request.data.get('part_no')
-        net_wt = Decimal(str(request.data.get('net_wt')))
+        if not part_no:
+            return Response({"error": "part_no query parameter is required"}, status=400)
 
-        try:
-            item = NetWeight.objects.get(part_no=part_no)
-            existing = item.net_wt
-            lower_limit = existing * Decimal('0.90')
-            upper_limit = existing * Decimal('1.10')
+        net_weights = NetWeight.objects.filter(part_no=part_no)
 
-            if lower_limit <= net_wt <= upper_limit:
-                return Response({'message': 'Net weight accepted (within ±10%)'}, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    {'error': f'Net weight differs not more than ±10% from {existing}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        except NetWeight.DoesNotExist:
-            new_item = NetWeight.objects.create(part_no=part_no, net_wt=net_wt)
-            return Response({'message': 'New part number added'}, status=status.HTTP_201_CREATED)
+        serializer = NetWeightSerializer(net_weights, many=True)
+        return Response(serializer.data, status=200)
+
+    def post(self, request):
+        part_no = request.data.get("part_no")
+        net_wt = request.data.get("net_wt")
+
+        if not part_no or net_wt is None:
+            return Response({"error": "part_no and net_wt are required"}, status=400)
+
+        obj, created = NetWeight.objects.get_or_create(
+            part_no=part_no,
+            net_wt=net_wt,
+            defaults={"count": 1}
+        )
+
+        if not created:
+            obj.count += 1
+            obj.save()
+
+        return Response({
+            "message": "Net weight updated successfully",
+            "part_no": obj.part_no,
+            "net_wt": obj.net_wt,
+            "count": obj.count,
+            "created": created
+        }, status=201 if created else 200)
+    
+@ensure_csrf_cookie
+def set_csrf_cookie(request):
+    return JsonResponse({"message": "CSRF cookie set"})

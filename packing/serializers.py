@@ -23,4 +23,4 @@ class PackingDetailSerializer(serializers.ModelSerializer):
 class NetWeightSerializer(serializers.ModelSerializer):
     class Meta:
         model = NetWeight
-        fields = ['part_no', 'net_wt']
+        fields = '__all__'

@@ -65,9 +65,12 @@ class PackingDetail(models.Model):
         return f"{self.client.client_name} - {self.part_no}"
 
 class NetWeight(models.Model):
-    part_no = models.CharField(max_length=100, primary_key=True)
+    part_no = models.CharField(max_length=100)
     net_wt = models.DecimalField(max_digits=10, decimal_places=3)
+    count = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ('part_no', 'net_wt')
 
     def __str__(self):
-        return f"{self.part_no} - {self.net_wt}"
-
+        return f"{self.part_no} - {self.net_wt} ({self.count})"
