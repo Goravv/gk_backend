@@ -18,31 +18,34 @@ def find_column(df, possible_names):
         if name in df.columns:
             return name
     return None
-
 def parse_excel_file(file):
-    df = pd.read_excel(file)
+    import pandas as pd
 
-    # Normalize columns by mapping to model fields
-    data = []
-    for idx, row in df.iterrows():
-        item = {}
+    try:
+        df = pd.read_excel(file)
+    except Exception as e:
+        raise ValueError("Invalid Excel file")
 
-        # Required fields
-        for key in ['part_no', 'description', 'qty']:
-            col_name = find_column(df, COLUMN_MAP[key])
-            if not col_name:
-                raise ValueError(f"Required column '{key}' is missing in the Excel file.")
-            item[key] = row[col_name]
+    required_columns = ['part_no', 'description', 'qty']  # adjust if you have more columns
 
-        # Optional fields
-        for key in ['mrp', 'total_amt_mrp', 'tax_percent', 'hsn', 'billed_qty', 'total_amt_billed_qty']:
-            col_name = find_column(df, COLUMN_MAP[key])
-            item[key] = row[col_name] if col_name in df.columns else None
+    for col in required_columns:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column: {col}")
 
-        # Skip rows without part_no
-        if pd.isna(item['part_no']):
+    items_data = []
+    for _, row in df.iterrows():
+        part_no = row.get('part_no')
+        description = row.get('description')
+        qty = row.get('qty')
+
+        # ✅ Skip only if part_no or qty is missing (not if qty == 0)
+        if pd.isna(part_no) or pd.isna(qty):
             continue
 
-        data.append(item)
+        items_data.append({
+            'part_no': str(part_no).strip(),
+            'description': str(description).strip() if pd.notna(description) else '',
+            'qty': int(qty),  # Allows 0
+        })
 
-    return data
+    return items_data

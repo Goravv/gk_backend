@@ -7,6 +7,7 @@ class ExcelData(models.Model):
     mrp_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     hsn_code = models.IntegerField()
     gst_percent = models.DecimalField(max_digits=3, decimal_places=0)
+    
 
     def __str__(self):
         return self.item_description

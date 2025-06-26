@@ -7,54 +7,57 @@ import pandas as pd
 
 
 class UploadExcelView(APIView):
-    def post(self, request, format=None):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+   def post(self, request, format=None):
+    file = request.FILES.get('file')
+    if not file:
+        return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            df = pd.read_excel(file, engine='openpyxl')  # use in-memory, no disk
-        except Exception as e:
-            return Response({"error": f"Failed to read Excel file: {str(e)}"},
-                            status=status.HTTP_400_BAD_REQUEST)
+    try:
+        df = pd.read_excel(file, engine='openpyxl')  # use in-memory, no disk
+    except Exception as e:
+        return Response({"error": f"Failed to read Excel file: {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
-        # Normalize column names
-        df.columns = [col.strip() for col in df.columns]
+    # Normalize column names
+    df.columns = [col.strip() for col in df.columns]
 
-        required_columns = [
-            'Item Code', 'Item Description', 'Item Segment',
-            'MRP - per unit', 'HSN Code', 'GST %'
-        ]
+    # ✅ Define required columns
+    required_columns = [
+        'Item Code', 'Item Description', 'MRP - per unit', 'Brand'
+    ]
 
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return Response({"error": f"Missing columns: {', '.join(missing_columns)}"},
-                            status=status.HTTP_400_BAD_REQUEST)
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        return Response({"error": f"Missing columns: {', '.join(missing_columns)}"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
-        df = df.dropna(subset=['Item Code'])
+    df = df.dropna(subset=['Item Code'])
 
+    # Convert HSN Code to int if it exists
+    if 'HSN Code' in df.columns:
         try:
             df['HSN Code'] = df['HSN Code'].fillna(0).astype(int)
         except Exception as e:
             return Response({"error": f"HSN Code conversion failed: {str(e)}"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        count = 0
-        for _, row in df.iterrows():
-            ExcelData.objects.update_or_create(
-                item_code=row['Item Code'],
-                defaults={
-                    'item_description': row['Item Description'],
-                    'item_segment': row['Item Segment'],
-                    'mrp_per_unit': row['MRP - per unit'],
-                    'hsn_code': row['HSN Code'],
-                    'gst_percent': row['GST %'],
-                }
-            )
-            count += 1
+    count = 0
+    for _, row in df.iterrows():
+        ExcelData.objects.update_or_create(
+            item_code=row['Item Code'],
+            defaults={
+                'item_description': row.get('Item Description'),
+                'item_segment': row.get('Item Segment'),  # Optional
+                'mrp_per_unit': row.get('MRP - per unit'),
+                'hsn_code': row.get('HSN Code', 0),       # Optional
+                'gst_percent': row.get('GST %', 0),       # Optional
+                'brand': row.get('Brand'),                # ✅ New field
+            }
+        )
+        count += 1
 
-        return Response({"message": f"{count} rows imported successfully."},
-                        status=status.HTTP_201_CREATED)
+    return Response({"message": f"{count} rows imported successfully."},
+                    status=status.HTTP_201_CREATED)
 
 
 class ExcelDataListView(APIView):

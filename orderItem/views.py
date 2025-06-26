@@ -35,7 +35,7 @@ class UploadExcelView(APIView):
             )
 
         return Response({"message": "Excel data uploaded successfully"}, status=status.HTTP_200_OK)
-
+    
 
 class ItemListView(APIView):
     def get(self, request):
