@@ -197,11 +197,8 @@ class StockViewSet(viewsets.ModelViewSet):
             if not required_columns.issubset(df.columns):
                 return Response({"error": f"Missing columns. Required: {required_columns}"}, status=400)
 
-            part_nos = df["part_no"].astype(str).str.strip().tolist()
-            existing_stocks = Stock.objects.in_bulk(part_nos)
-
-            to_create = []
-            to_update = []
+            created_count = 0
+            updated_count = 0
 
             for _, row in df.iterrows():
                 part_no = str(row["part_no"]).strip()
@@ -209,30 +206,25 @@ class StockViewSet(viewsets.ModelViewSet):
                 qty = int(row["qty"])
                 brand_name = str(row["brand_name"]).strip()
 
-                if part_no in existing_stocks:
-                    stock = existing_stocks[part_no]
+                stock, created = Stock.objects.get_or_create(part_no=part_no, defaults={
+                    "description": description,
+                    "qty": qty,
+                    "brand_name": brand_name,
+                })
+
+                if not created:
                     stock.qty += qty
                     stock.description = description
                     stock.brand_name = brand_name
-                    to_update.append(stock)
+                    stock.save()
+                    updated_count += 1
                 else:
-                    stock = Stock(
-                        part_no=part_no,
-                        description=description,
-                        qty=qty,
-                        brand_name=brand_name
-                    )
-                    to_create.append(stock)
-
-            if to_create:
-                Stock.objects.bulk_create(to_create, batch_size=1000)
-            if to_update:
-                Stock.objects.bulk_update(to_update, ["qty", "description", "brand_name"], batch_size=1000)
+                    created_count += 1
 
             return Response({
                 "message": "Stock Excel processed successfully",
-                "created": len(to_create),
-                "updated": len(to_update)
+                "created": created_count,
+                "updated": updated_count
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
