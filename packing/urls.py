@@ -3,8 +3,8 @@ from .views import PackingViewSet, StockViewSet,PackingDetailListCreateAPIView,U
 from django.urls import path, include
 
 router = DefaultRouter()
-router.register(r'packing', PackingViewSet)
-router.register(r'stock', StockViewSet)
+router.register(r'packing', PackingViewSet,basename='packing')
+router.register(r'stock', StockViewSet,basename='stock')
 
 urlpatterns = [
     path("packing-details/", PackingDetailListCreateAPIView.as_view(), name="packing-details"),

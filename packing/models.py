@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from client.models import Client
 
 
@@ -19,6 +20,7 @@ class Packing(models.Model):
 
 
 class Stock(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stock_items")
     part_no = models.CharField(max_length=100, primary_key=True)
     description = models.TextField()
     qty = models.IntegerField()
@@ -33,7 +35,7 @@ class PackingDetail(models.Model):
     part_no = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     hsn_no = models.CharField(max_length=20, blank=True, null=True)
-    gst = models.IntegerField(blank=True, null=True)
+    gst = models.CharField(blank=True, null=True)
     brand_name = models.CharField(max_length=100, blank=True, null=True)
 
     total_packing_qty = models.IntegerField(blank=True, null=True)
@@ -59,10 +61,9 @@ class PackingDetail(models.Model):
     height = models.IntegerField(blank=True, null=True)
     cbm = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
 
-    
-
     def __str__(self):
         return f"{self.client.client_name} - {self.part_no}"
+
 
 class NetWeight(models.Model):
     part_no = models.CharField(max_length=100)

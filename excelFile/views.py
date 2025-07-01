@@ -4,62 +4,103 @@ from rest_framework import status
 from .models import ExcelData
 from .serializers import ExcelDataSerializer
 import pandas as pd
+from collections import defaultdict
+from django.db import transaction
+
 
 
 class UploadExcelView(APIView):
-   def post(self, request, format=None):
-    file = request.FILES.get('file')
-    if not file:
-        return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, format=None):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        df = pd.read_excel(file, engine='openpyxl')  # use in-memory, no disk
-    except Exception as e:
-        return Response({"error": f"Failed to read Excel file: {str(e)}"},
-                        status=status.HTTP_400_BAD_REQUEST)
+        try:
+            df = pd.read_excel(file, engine='openpyxl')
+        except Exception as e:
+            return Response({"error": f"Failed to read Excel file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Normalize column names
-    df.columns = [col.strip() for col in df.columns]
+        # Strip column names
+        df.columns = [col.strip() for col in df.columns]
 
-    # ✅ Define required columns
-    required_columns = [
-        'Item Code', 'Item Description', 'MRP - per unit', 'Brand'
-    ]
+        required_columns = [
+            'Item Code', 'Item Description', 
+            'MRP - per unit', 'HSN Code', 'GST %'
+        ]
 
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        return Response({"error": f"Missing columns: {', '.join(missing_columns)}"},
-                        status=status.HTTP_400_BAD_REQUEST)
+        # Check for missing columns
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return Response({"error": f"Missing columns: {', '.join(missing_columns)}"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-    df = df.dropna(subset=['Item Code'])
+        # Drop rows with empty Item Code
+        df = df.dropna(subset=['Item Code'])
 
-    # Convert HSN Code to int if it exists
-    if 'HSN Code' in df.columns:
+        # Convert HSN Code to integer
         try:
             df['HSN Code'] = df['HSN Code'].fillna(0).astype(int)
         except Exception as e:
-            return Response({"error": f"HSN Code conversion failed: {str(e)}"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"HSN Code conversion failed: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    count = 0
-    for _, row in df.iterrows():
-        ExcelData.objects.update_or_create(
-            item_code=row['Item Code'],
-            defaults={
-                'item_description': row.get('Item Description'),
-                'item_segment': row.get('Item Segment'),  # Optional
-                'mrp_per_unit': row.get('MRP - per unit'),
-                'hsn_code': row.get('HSN Code', 0),       # Optional
-                'gst_percent': row.get('GST %', 0),       # Optional
-                'brand': row.get('Brand'),                # ✅ New field
-            }
-        )
-        count += 1
+        # Clean GST % field for CharField, store as string like "18%"
+        def clean_gst(val):
+            if pd.isna(val):
+                return "0%"
+            if isinstance(val, str):
+                val = val.strip().replace('%', '')
+            try:
+                return f"{float(val):.0f}%"
+            except ValueError:
+                return "0%"
 
-    return Response({"message": f"{count} rows imported successfully."},
-                    status=status.HTTP_201_CREATED)
+        df['GST %'] = df['GST %'].apply(clean_gst)
 
+        # Create a mapping of Item Code to row
+        incoming_data = {
+            str(row['Item Code']).strip(): row for _, row in df.iterrows()
+        }
 
+        # Fetch existing items
+        existing_items = ExcelData.objects.filter(item_code__in=incoming_data.keys())
+        existing_map = {item.item_code: item for item in existing_items}
+
+        items_to_create = []
+        items_to_update = []
+
+        for item_code, row in incoming_data.items():
+            if item_code in existing_map:
+                obj = existing_map[item_code]
+                obj.item_description = row['Item Description']
+                obj.mrp_per_unit = row['MRP - per unit']
+                obj.hsn_code = row['HSN Code']
+                obj.gst_percent = row['GST %']
+                items_to_update.append(obj)
+            else:
+                items_to_create.append(
+                    ExcelData(
+                        item_code=item_code,
+                        item_description=row['Item Description'],
+                        mrp_per_unit=row['MRP - per unit'],
+                        hsn_code=row['HSN Code'],
+                        gst_percent=row['GST %']
+                    )
+                )
+
+        with transaction.atomic():
+            if items_to_create:
+                ExcelData.objects.bulk_create(items_to_create, batch_size=1000)
+            if items_to_update:
+                ExcelData.objects.bulk_update(
+                    items_to_update,
+                    ['item_description', 'mrp_per_unit', 'hsn_code', 'gst_percent'],
+                    batch_size=1000
+                )
+
+        return Response({
+            "message": f"{len(items_to_create)} created, {len(items_to_update)} updated."
+        }, status=status.HTTP_201_CREATED)
+     
 class ExcelDataListView(APIView):
     def get(self, request):
         data = ExcelData.objects.all()

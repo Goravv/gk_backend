@@ -9,10 +9,10 @@ class MergedItem(models.Model):
     # Joined fields from ExcelData
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_amt_mrp = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    tax_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    tax_percent = models.CharField(max_length=10, null=True, blank=True)
     hsn = models.CharField(max_length=100, null=True, blank=True)
 
-    # Foreign key to Client model
+    # Link to Client (which is already user-filtered)
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="merged_items")
 
     class Meta:

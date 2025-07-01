@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
     'excelFile',
     'orderItem',
@@ -30,6 +31,12 @@ INSTALLED_APPS = [
     'packing',
     'client',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ]
+}
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
