@@ -283,7 +283,8 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
         if client_name and marka:
             try:
                 client = Client.objects.get(client_name=client_name, marka=marka, user=self.request.user)
-                return PackingDetail.objects.filter(client=client)
+                packing=PackingDetail.objects.filter(client=client).order_by('id')
+                return packing
             except Client.DoesNotExist:
                 return PackingDetail.objects.none()
         return PackingDetail.objects.filter(client__user=self.request.user)
