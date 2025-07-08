@@ -40,10 +40,10 @@ WSGI_APPLICATION = 'export.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv("MYSQL_DATABASE", "gk_database_final"),
-        'USER': os.getenv("MYSQL_USER", "gk"),
-        'PASSWORD': os.getenv("MYSQL_PASSWORD", "1234"),
-        'HOST': os.getenv("MYSQL_HOST", "localhost"),
+        'NAME': os.getenv("MYSQL_DATABASE", "gk_database"),
+        'USER': os.getenv("MYSQL_USER", "admin"),
+        'PASSWORD': os.getenv("MYSQL_PASSWORD", "Gaurav12318"),
+        'HOST': os.getenv("MYSQL_HOST", "database-2.c1oq8qkgg1y0.ap-south-1.rds.amazonaws.com"),
         'PORT': os.getenv("MYSQL_PORT", "3306"),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
