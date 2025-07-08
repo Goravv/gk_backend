@@ -35,7 +35,7 @@ class PackingDetail(models.Model):
     part_no = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     hsn_no = models.CharField(max_length=20, blank=True, null=True)
-    gst = models.CharField(blank=True, null=True)
+    gst = models.CharField(max_length=10,blank=True, null=True)
     brand_name = models.CharField(max_length=100, blank=True, null=True)
 
     total_packing_qty = models.IntegerField(blank=True, null=True)

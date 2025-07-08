@@ -5,7 +5,7 @@ class ExcelData(models.Model):
     item_description = models.TextField()
     mrp_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     hsn_code = models.IntegerField()
-    gst_percent = models.CharField()
+    gst_percent = models.CharField(max_length=10)
     
 
     def __str__(self):
