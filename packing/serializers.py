@@ -28,7 +28,9 @@ class PackingDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = PackingDetail
         fields = '__all__'
-
+        extra_kwargs = {
+        'part_no': {'validators': []}
+    }
     def validate_client(self, client):
         request = self.context.get('request')
         if client.user != request.user:
