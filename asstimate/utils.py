@@ -3,12 +3,14 @@ from orderItem.models import Item
 from excelFile.models import ExcelData
 from .models import MergedItem
 
-def populate_merged_items(client,gst_detail,rupees):
+def populate_merged_items(client, gst_detail, rupees):
     if not isinstance(client, Client):
         raise ValueError("Expected a Client instance")
 
     # Delete existing merged items for this client
     MergedItem.objects.filter(client=client).delete()
+
+    merged_items = []  # List to collect all MergedItem instances
 
     # Merge Item and ExcelData rows
     for item in Item.objects.filter(client=client):
@@ -24,19 +26,17 @@ def populate_merged_items(client,gst_detail,rupees):
             tax = 0
             hsn = 0
         
-        # Handle potential None values for required fields
         if not item.part_no:
             raise ValueError(f"Missing part_no in item: {item}")
-        
+
         if item.qty is None:
             item.qty = 0
 
         total_amt = mrp * item.qty 
-        effective_price = round((total_amt * (100 - gst_detail[int(tax)])) / 100, 2) if tax!=0 else 0
-        doller_effective_price=round(effective_price/rupees,2)
+        effective_price = round((total_amt * (100 - gst_detail.get(int(tax), 0))) / 100, 2) if tax != 0 else 0
+        doller_effective_price = round(effective_price / rupees, 2) if rupees else 0
 
-        # Create MergedItem safely
-        MergedItem.objects.create(
+        merged_items.append(MergedItem(
             part_no=item.part_no,
             description=item.description,
             qty=item.qty,
@@ -47,4 +47,8 @@ def populate_merged_items(client,gst_detail,rupees):
             effective_price=effective_price,
             doller_effective_price=doller_effective_price,
             client=client,
-        )
+        ))
+
+    # Bulk insert all merged items at once
+    if merged_items:
+        MergedItem.objects.bulk_create(merged_items, ignore_conflicts=True)

@@ -6,6 +6,39 @@ from .serializers import ItemSerializer
 from .excel_parser import parse_excel_file
 from client.models import Client
 
+# class UploadExcelView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def post(self, request):
+#         file = request.FILES.get('file')
+#         client_name = request.POST.get('client_name')
+#         marka = request.POST.get('marka')
+
+#         if not file or not client_name or not marka:
+#             return Response({"error": "File, client name, and marka are required"}, status=400)
+
+#         # Get or create client ONLY for the current user
+#         client, created = Client.objects.get_or_create(
+#             user=request.user,
+#             client_name=client_name,
+#             marka=marka
+#         )
+
+#         try:
+#             items_data = parse_excel_file(file)
+#         except ValueError as e:
+#             return Response({"error": str(e)}, status=400)
+
+#         for item_data in items_data:
+#             item_data['client'] = client
+#             Item.objects.update_or_create(
+#                 part_no=item_data['part_no'],
+#                 client=client,
+#                 defaults=item_data
+#             )
+
+#         return Response({"message": "Excel data uploaded successfully"}, status=200)
+
 class UploadExcelView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -17,8 +50,8 @@ class UploadExcelView(APIView):
         if not file or not client_name or not marka:
             return Response({"error": "File, client name, and marka are required"}, status=400)
 
-        # Get or create client ONLY for the current user
-        client, created = Client.objects.get_or_create(
+        # Get or create client
+        client, _ = Client.objects.get_or_create(
             user=request.user,
             client_name=client_name,
             marka=marka
@@ -29,16 +62,40 @@ class UploadExcelView(APIView):
         except ValueError as e:
             return Response({"error": str(e)}, status=400)
 
-        for item_data in items_data:
-            item_data['client'] = client
-            Item.objects.update_or_create(
-                part_no=item_data['part_no'],
-                client=client,
-                defaults=item_data
-            )
+        part_nos = [item['part_no'] for item in items_data]
+
+        # Fetch existing items for that client
+        existing_items_qs = Item.objects.filter(client=client, part_no__in=part_nos)
+        existing_items_dict = {item.part_no: item for item in existing_items_qs}
+
+        items_to_create = []
+        items_to_update = []
+
+        for data in items_data:
+            part_no = data['part_no']
+            description = data.get('description', '')
+            qty = data.get('qty', 0)
+
+            if part_no in existing_items_dict:
+                item = existing_items_dict[part_no]
+                item.description = description
+                item.qty = qty
+                items_to_update.append(item)
+            else:
+                items_to_create.append(Item(
+                    client=client,
+                    part_no=part_no,
+                    description=description,
+                    qty=qty
+                ))
+
+        if items_to_create:
+            Item.objects.bulk_create(items_to_create, batch_size=100)
+
+        if items_to_update:
+            Item.objects.bulk_update(items_to_update, ['description', 'qty'], batch_size=100)
 
         return Response({"message": "Excel data uploaded successfully"}, status=200)
-
 
 class ItemListView(APIView):
     permission_classes = [permissions.IsAuthenticated]

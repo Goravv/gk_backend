@@ -36,7 +36,6 @@ class UploadExcelView(APIView):
 
         # Drop rows with empty Item Code
         df = df.dropna(subset=['Item Code'])
-        print(len(df))
         # Convert HSN Code to integer
         try:
             df['HSN Code'] = df['HSN Code'].fillna(0).astype(int)
