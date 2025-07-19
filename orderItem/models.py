@@ -8,7 +8,7 @@ class Item(models.Model):
     qty = models.IntegerField()
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_amt_mrp = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    tax_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    tax_percent = models.IntegerField(null=True, blank=True)
     hsn = models.CharField(max_length=50, null=True, blank=True)
     billed_qty = models.IntegerField(null=True, blank=True)
     total_amt_billed_qty = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)

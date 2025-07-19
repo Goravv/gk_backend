@@ -54,7 +54,7 @@ class UploadExcelView(APIView):
             except ValueError:
                 return "0%"
 
-        df['GST %'] = df['GST %'].apply(clean_gst)
+        df['GST %'] = df['GST %']
 
         # Create a mapping of Item Code to row
         incoming_data = {
