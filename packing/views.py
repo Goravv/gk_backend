@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse
 from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
 
 
 
@@ -156,6 +157,7 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response({"success": True}, status=204)
 
     @action(detail=False, methods=['post'], url_path='copy-from-estimate')
+  
     def copy_from_estimate(self, request):
         client_name = request.data.get('client')
         marka = request.data.get('marka')
@@ -168,34 +170,52 @@ class PackingViewSet(viewsets.ModelViewSet):
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=400)
 
-        merged_items = MergedItem.objects.filter(client=client)
-        created_or_updated = []
+        merged_items = list(MergedItem.objects.filter(client=client))
+        part_nos = [item.part_no for item in merged_items]
+
+    # Fetch stock in one query
+        stock_map = {
+            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user)
+        }
+
+    # Fetch existing packing in one query
+        existing_packing_map = {
+            (p.part_no): p for p in Packing.objects.filter(client=client, part_no__in=part_nos)
+        }
+
+        new_packings = []
+        updated_packings = []
 
         for item in merged_items:
             part_no = item.part_no
             description = item.description
             qty = item.qty
+            stock_qty = stock_map.get(part_no, 0)
 
-            try:
-                stock = Stock.objects.get(part_no=part_no, user=request.user)
-                stock_qty = stock.qty
-            except Stock.DoesNotExist:
-                stock_qty = 0
+            if part_no in existing_packing_map:
+                packing = existing_packing_map[part_no]
+                packing.description = description
+                packing.qty = qty
+                packing.stock_qty = stock_qty
+                updated_packings.append(packing)
+            else:
+                new_packings.append(Packing(
+                    client=client,
+                    part_no=part_no,
+                    description=description,
+                    qty=qty,
+                    stock_qty=stock_qty
+                ))
 
-            packing, _ = Packing.objects.update_or_create(
-                client=client,
-                part_no=part_no,
-                defaults={
-                    'description': description,
-                    'qty': qty,
-                    'stock_qty': stock_qty
-                }
-            )
-            created_or_updated.append(packing)
+    # Perform bulk DB operations
+        with transaction.atomic():
+            if new_packings:
+                Packing.objects.bulk_create(new_packings)
+            if updated_packings:
+                Packing.objects.bulk_update(updated_packings, ['description', 'qty', 'stock_qty'])
 
-        serializer = self.get_serializer(created_or_updated, many=True)
+        serializer = self.get_serializer(new_packings + updated_packings, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
     @action(detail=False, methods=['post'], url_path='sync-stock')
     def sync_stock_qty(self, request):
         updated = 0
