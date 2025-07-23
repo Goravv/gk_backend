@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 from client.models import Client
 
 
@@ -20,7 +20,7 @@ class Packing(models.Model):
 
 
 class Stock(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stock_items")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     part_no = models.CharField(max_length=100, primary_key=True)
     description = models.TextField()
     qty = models.IntegerField()

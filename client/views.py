@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions
+from rest_framework.exceptions import PermissionDenied
 from .models import Client
 from .serializers import ClientSerializer
 
@@ -7,10 +8,12 @@ class ClientViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Show only data belonging to the logged-in user
         return Client.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        # Auto-assign the user to the new Client
         serializer.save(user=self.request.user)
-    
+
+    def perform_update(self, serializer):
+        if serializer.instance.user != self.request.user:
+            raise PermissionDenied("You do not have permission to edit this client.")
+        serializer.save()
