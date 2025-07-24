@@ -146,13 +146,6 @@ class PackingViewSet(viewsets.ModelViewSet):
         else:
             packing.save()
 
-        details = PackingDetail.objects.filter(part_no=part_no, client=client)
-        for detail in details:
-            detail.total_packing_qty = max((detail.total_packing_qty or 0) - qty, 0)
-            if detail.total_packing_qty == 0:
-                detail.delete()
-            else:
-                detail.save()
 
         return Response({"success": True}, status=204)
 
