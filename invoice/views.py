@@ -35,20 +35,21 @@ class invoiceGenrate(APIView):
         skipped_items = []
 
         for item in merged_items:
+            
             try:
                 mrp = Decimal(item.mrp)
                 if mrp == 0:
                     skipped_items.append(item.part_no)
                     continue
 
-                per_unit = mrp / doller
+                amt = round(mrp / doller,2)
                 invoice_objs.append(invoice(
                     client=item.client,
                     part_no=item.part_no,
                     description=item.description,
                     hsn=item.hsn,
                     qty=item.qty,
-                    per_unit=per_unit,
+                    per_unit=amt,
                     total_amt=item.doller_effective_price
                 ))
             except (InvalidOperation, DivisionUndefined, ZeroDivisionError):
@@ -61,13 +62,13 @@ class invoiceGenrate(APIView):
             "message": "Invoice generated successfully",
             "skipped_items": skipped_items
         })
-
     def get(self, request):
-        client_name = request.GET.get('client_name')
-        marka = request.GET.get('marka')
+    # Extract and clean query params
+        client_name = request.query_params.get('client', '').strip()
+        marka = request.query_params.get('marka', '').strip()
 
         if not client_name or not marka:
-            return Response({"error": "Client name and marka required"}, status=400)
+            return Response({"error": "Client name and marka are required"}, status=400)
 
         try:
             client = Client.objects.get(user=request.user, client_name=client_name, marka=marka)

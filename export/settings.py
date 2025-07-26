@@ -11,8 +11,8 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     "gk-backend-c2ih.onrender.com",
-    "localhost", "127.0.0.3",
-    "192.168.1.4","192.168.1.3","192.168.1.8"
+    "localhost", "127.0.0.1",
+    "192.168.1.4","192.168.1.9","192.168.1.2"
 ]
 
 INSTALLED_APPS = [
@@ -83,8 +83,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "https://gk-backend-c2ih.onrender.com",
     "http://localhost:3000", "http://127.0.0.1:3000",
-    "http://192.168.1.3:3000", "http://192.168.1.7:3000",
-    "http://192.168.1.4:3000", "http://192.168.1.10:3000",
+    "http://192.168.1.3:3000", "http://192.168.1.2:3000",
+    "http://192.168.1.4:3000", "http://192.168.1.16:3000",
     "http://192.168.1.8:3000", "http://192.168.172.203:3000"
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -96,8 +96,8 @@ CORS_ALLOW_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://gk-backend-c2ih.onrender.com",
     "http://localhost:3000", "http://127.0.0.1:3000",
-    "http://192.168.1.3:3000", "http://192.168.1.7:3000",
-    "http://192.168.1.4:3000", "http://192.168.1.10:3000",
+    "http://192.168.1.3:3000", "http://192.168.1.2:3000",
+    "http://192.168.1.4:3000", "http://192.168.1.16:3000",
     "http://192.168.1.8:3000", "http://192.168.172.203:3000"
 ]
 
