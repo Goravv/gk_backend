@@ -3,6 +3,7 @@ from .models import CustomUser
 from .serializers import CustomUserSerializer
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
