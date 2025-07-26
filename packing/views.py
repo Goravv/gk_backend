@@ -14,6 +14,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+import pandas as pd
+import json
 
 
 
@@ -229,8 +231,108 @@ class PackingViewSet(viewsets.ModelViewSet):
             "updated_count": updated,
             "not_found_part_nos": not_found
         }, status=status.HTTP_200_OK)
+   
 
+   
+    @action(detail=False, methods=['post'], url_path='update_row_list')
+    def update_row_list(self, request):
+        client_name = request.data.get('client_name')
+        marka = request.data.get('marka')
+        if not client_name or not marka:
+            return Response({"error": "Both client_name and marka are required"}, status=400)
 
+        try:
+            client = Client.objects.get(client_name=client_name.strip(), marka=marka.strip(), user=request.user)
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client name or marka"}, status=400)
+
+    # Handle data from file or request body
+        if 'file' in request.FILES:
+            file = request.FILES['file']
+            try:
+                df = pd.read_excel(file)
+                merged_items = df.to_dict(orient='records')
+            except Exception as e:
+                return Response({"error": f"Failed to read Excel file: {str(e)}"}, status=400)
+        else:
+            raw_data = request.data.get('data')
+
+        # If data is a string, try to parse as JSON
+            if isinstance(raw_data, str):
+                try:
+                    parsed_data = json.loads(raw_data)
+                except json.JSONDecodeError:
+                    return Response({"error": "Invalid JSON string in 'data'"}, status=400)
+            else:
+                parsed_data = raw_data
+
+        # Normalize into a list of dicts
+            if isinstance(parsed_data, list):
+                merged_items = parsed_data
+            elif isinstance(parsed_data, dict):
+                merged_items = [parsed_data]
+            else:
+                return Response({"error": "No valid data source found (expected file, list or dict in 'data')"}, status=400)
+
+        if not merged_items:
+            return Response({"error": "No items to process"}, status=400)
+
+    # Extract part numbers
+        part_nos = [item.get('partNo') or item.get('part_no') for item in merged_items if item.get('partNo') or item.get('part_no')]
+
+    # Fetch stock and existing packing
+        stock_map = {
+            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user)
+        }
+
+        existing_packing_map = {
+            p.part_no: p for p in Packing.objects.filter(client=client, part_no__in=part_nos)
+        }
+
+        new_packings = []
+        updated_packings = []
+
+        for item in merged_items:
+            part_no = item.get('partNo') or item.get('part_no')
+            description = item.get('description', '')
+            qty = item.get('qty', 0)
+
+            try:
+                qty = int(qty)
+            except:
+                qty = 0
+
+            stock_qty = stock_map.get(part_no, 0)
+
+            if not part_no:
+                continue  # Skip invalid rows
+
+            if part_no in existing_packing_map:
+                packing = existing_packing_map[part_no]
+                packing.description = description
+                packing.qty += qty
+                packing.stock_qty = stock_qty
+                updated_packings.append(packing)
+            else:
+                new_packings.append(Packing(
+                    client=client,
+                    part_no=part_no,
+                    description=description,
+                    qty=qty,
+                    stock_qty=stock_qty
+                ))
+
+    # Bulk save
+        print(new_packings)
+        print(updated_packings)
+        with transaction.atomic():
+            if new_packings:
+                Packing.objects.bulk_create(new_packings)
+            if updated_packings:
+                Packing.objects.bulk_update(updated_packings, ['description', 'qty', 'stock_qty'])
+
+        serializer = self.get_serializer(new_packings + updated_packings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class StockViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]

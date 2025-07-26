@@ -12,6 +12,8 @@ class Client(models.Model):
     delivery_terms = models.TextField()
     port_of_discharge = models.CharField(max_length=100)
     final_destination = models.CharField(max_length=100)
+    gst=models.JSONField()
+    rupees=models.CharField(max_length=5)
     country = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

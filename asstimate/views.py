@@ -38,15 +38,7 @@ class MergeOrderItemWithExcel(APIView):
     def post(self, request):
         client_name = request.data.get('client_name')
         marka = request.data.get('marka')
-        gst_details_list = request.data.get('gst_details')
-        rupees= request.data.get('rupees')
-        print(rupees)
-        gst_details={}
-        for row in gst_details_list:
-            gst = int(row.get('gst'))
-            discount = int(row.get('discount'))
-            gst_details[gst] = discount
-        print(gst_details)
+        
 
         if not client_name or not marka:
             return Response({"error": "Both client_name and marka  are required"}, status=400)
@@ -57,12 +49,16 @@ class MergeOrderItemWithExcel(APIView):
                 client_name=client_name.strip(),
                 marka=marka.strip()
             )
+            client_detail = Client.objects.filter(user=request.user,
+                client_name=client_name.strip(),
+                marka=marka.strip()  ).first()
+            
         except Client.DoesNotExist:
             return Response({"error": "Client not found"}, status=404)
 
         try:
-            populate_merged_items(client,gst_details,rupees)  
-            return Response({"message": "Estimate generated successfully!"}, status=200)
+            missing_data=populate_merged_items(client,client_detail)  
+            return Response({"message": "Estimate generated successfully!","missing_data":missing_data}, status=200)
         except ValueError as e:
             return Response({"error": str(e)}, status=400)
 

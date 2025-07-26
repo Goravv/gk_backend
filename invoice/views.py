@@ -21,29 +21,15 @@ class invoiceGenrate(APIView):
             client = Client.objects.get(client_name=client_name, user=request.user)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client"}, status=400)
+        client_detail = Client.objects.filter(client_name=client_name, user=request.user).first()
 
         merged_items = MergedItem.objects.filter(client=client)
         if not merged_items.exists():
             return Response({"error": "No merged items found for this client"}, status=404)
 
-        doller = None
+        doller = int(client_detail.rupees)
 
-        # Find valid conversion rate
-        for item in merged_items:
-            try:
-                effective_price = Decimal(item.effective_price)
-                if effective_price > 0:
-                    doller_candidate = Decimal(item.doller_effective_price) / effective_price
-                    if doller_candidate > 0:
-                        doller = doller_candidate
-                        break
-            except (InvalidOperation, DivisionUndefined, ZeroDivisionError):
-                continue
-
-        if not doller:
-            return Response({
-                "error": "Unable to determine valid conversion rate (doller). All items may have 0 effective price or invalid data."
-            }, status=400)
+        
 
         invoice_objs = []
         skipped_items = []

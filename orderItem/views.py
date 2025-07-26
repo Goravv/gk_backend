@@ -5,6 +5,9 @@ from .models import Item
 from .serializers import ItemSerializer
 from .excel_parser import parse_excel_file
 from client.models import Client
+import json
+from django.db import transaction
+import pandas as pd 
 
 
 # class UploadExcelView(APIView):
@@ -41,31 +44,55 @@ from client.models import Client
 #         return Response({"message": "Excel data uploaded successfully"}, status=200)
 
 class UploadExcelView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
+    permission_classes = [permissions.IsAuthenticated]                                                                                                                                                                                                                     
     def post(self, request):
         file = request.FILES.get('file')
-        client_name = request.POST.get('client_name')
-        marka = request.POST.get('marka')
+        client_name = request.data.get('client_name')
+        marka = request.data.get('marka')
 
-        if not file or not client_name or not marka:
-            return Response({"error": "File, client name, and marka are required"}, status=400)
+        if not client_name or not marka:
+            return Response({"error": "Client name and marka are required"}, status=400)
 
-        # Get or create client
+        # Get or create the client
         client, _ = Client.objects.get_or_create(
             user=request.user,
-            client_name=client_name,
-            marka=marka
+            client_name=client_name.strip(),
+            marka=marka.strip()
         )
 
-        try:
-            items_data = parse_excel_file(file)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=400)
+        # Parse data from Excel file or JSON
+        if file:
+            try:
+                df = pd.read_excel(file)
+                items_data = df.to_dict(orient='records')
+            except Exception as e:
+                return Response({"error": f"Failed to parse Excel file: {str(e)}"}, status=400)
+        else:
+            raw_data = request.data.get('data')
+            if not raw_data:
+                return Response({"error": "No data provided"}, status=400)
 
-        part_nos = [item['part_no'] for item in items_data]
+            # Handle JSON string or dict/list
+            if isinstance(raw_data, str):
+                try:
+                    parsed_data = json.loads(raw_data)
+                except json.JSONDecodeError:
+                    return Response({"error": "Invalid JSON string in 'data'"}, status=400)
+            else:
+                parsed_data = raw_data
 
-        # Fetch existing items for that client
+            if isinstance(parsed_data, dict):
+                items_data = [parsed_data]
+            elif isinstance(parsed_data, list):
+                items_data = parsed_data
+            else:
+                return Response({"error": "Invalid data format. Must be list or dict."}, status=400)
+
+        if not items_data:
+            return Response({"error": "No items found to process"}, status=400)
+
+        part_nos = [item.get('part_no') or item.get('partNo') for item in items_data if item.get('part_no') or item.get('partNo')]
+
         existing_items_qs = Item.objects.filter(client=client, part_no__in=part_nos)
         existing_items_dict = {item.part_no: item for item in existing_items_qs}
 
@@ -73,14 +100,22 @@ class UploadExcelView(APIView):
         items_to_update = []
 
         for data in items_data:
-            part_no = data['part_no']
+            part_no = data.get('part_no') or data.get('partNo')
             description = data.get('description', '')
             qty = data.get('qty', 0)
+
+            try:
+                qty = int(qty)
+            except:
+                qty = 0
+
+            if not part_no:
+                continue
 
             if part_no in existing_items_dict:
                 item = existing_items_dict[part_no]
                 item.description = description
-                item.qty = qty
+                item.qty += qty
                 items_to_update.append(item)
             else:
                 items_to_create.append(Item(
@@ -90,14 +125,14 @@ class UploadExcelView(APIView):
                     qty=qty
                 ))
 
-        if items_to_create:
-            Item.objects.bulk_create(items_to_create, batch_size=100)
+        # Save to DB
+        with transaction.atomic():
+            if items_to_create:
+                Item.objects.bulk_create(items_to_create, batch_size=100)
+            if items_to_update:
+                Item.objects.bulk_update(items_to_update, ['description', 'qty'], batch_size=100)
 
-        if items_to_update:
-            Item.objects.bulk_update(items_to_update, ['description', 'qty'], batch_size=100)
-
-        return Response({"message": "Excel data uploaded successfully"}, status=200)
-
+        return Response({"message": "Data uploaded successfully"}, status=200)
 class ItemListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
