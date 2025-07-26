@@ -152,7 +152,6 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response({"success": True}, status=204)
 
     @action(detail=False, methods=['post'], url_path='copy-from-estimate')
-  
     def copy_from_estimate(self, request):
         client_name = request.data.get('client')
         marka = request.data.get('marka')
@@ -213,26 +212,34 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
     @action(detail=False, methods=['post'], url_path='sync-stock')
     def sync_stock_qty(self, request):
-        updated = 0
+        all_packing = Packing.objects.filter(client__user=request.user)
+        part_nos = [p.part_no for p in all_packing if p.part_no]
+
+    # Get all stocks for the current user with relevant part numbers
+        stock_map = {
+            stock.part_no: stock.qty
+            for stock in Stock.objects.filter(user=request.user, part_no__in=part_nos)
+        }
+
+        to_update = []
         not_found = []
 
-        all_packing = Packing.objects.filter(client__user=request.user)
         for packing in all_packing:
-            try:
-                stock = Stock.objects.get(part_no=packing.part_no, user=request.user)
-                packing.stock_qty = stock.qty
-                packing.save()
-                updated += 1
-            except Stock.DoesNotExist:
+            if packing.part_no in stock_map:
+                packing.stock_qty = stock_map[packing.part_no]
+                to_update.append(packing)
+            else:
                 not_found.append(packing.part_no)
+
+    # Bulk update stock_qty field
+        if to_update:
+            Packing.objects.bulk_update(to_update, ['stock_qty'])
 
         return Response({
             "message": "Stock quantities synced.",
-            "updated_count": updated,
+            "updated_count": len(to_update),
             "not_found_part_nos": not_found
         }, status=status.HTTP_200_OK)
-   
-
    
     @action(detail=False, methods=['post'], url_path='update_row_list')
     def update_row_list(self, request):
