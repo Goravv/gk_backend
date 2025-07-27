@@ -44,6 +44,9 @@ class invoiceGenrate(APIView):
 
         for item in merged_items:
             try:
+                if not item.mrp:  # covers None and empty string or 0
+                    skipped_items.append(item.part_no)
+                    continue
                 mrp = Decimal(item.mrp)
                 if mrp == 0:
                     skipped_items.append(item.part_no)
