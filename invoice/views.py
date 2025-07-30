@@ -2,6 +2,8 @@ from decimal import Decimal, InvalidOperation, DivisionUndefined
 from .models import invoice
 from .serializers import invoiceSerializer
 from client.models import Client
+from excelFile.models import ExcelData
+from packing.models import PackingDetail
 from orderItem.models import Item
 from rest_framework.views import APIView
 from rest_framework import permissions
@@ -25,6 +27,8 @@ class invoiceGenrate(APIView):
 
         client_detail = Client.objects.filter(client_name=client_name, user=request.user).first()
         merged_items = Item.objects.filter(client=client)
+        packing=PackingDetail.objects.filter(client=client)
+        mrp_data=ExcelData.objects.all()
 
         if not merged_items.exists():
             return Response({"error": "No order items found for this client"}, status=404)
@@ -43,26 +47,41 @@ class invoiceGenrate(APIView):
         invoice_map = {inv.part_no: inv for inv in existing_invoices}
 
         for item in merged_items:
+            print(item)
             try:
-                if not item.mrp:  # covers None and empty string or 0
-                    skipped_items.append(item.part_no)
-                    continue
-                mrp = Decimal(item.mrp)
-                if mrp == 0:
+                related_mrp_data = mrp_data.filter(item_code=item.part_no).first()
+                if not related_mrp_data:
                     skipped_items.append(item.part_no)
                     continue
 
+                mrp = Decimal(related_mrp_data.mrp_per_unit or 0)
+                if mrp == 0:
+                    skipped_items.append(item.part_no)
+                    continue
+                
+
                 amt = round(mrp / doller, 2)
-                total_amt = amt * item.qty
+                tax_amt=mrp*item.qty
+                total_amt = max(amt * item.qty,round(tax_amt/doller,2))
+                hsn=related_mrp_data.hsn_code
+                related_packing = packing.filter(part_no=item.part_no).first()
+                gst = related_packing.gst if related_packing else 0
+                gst_amt = round(tax_amt * (Decimal(gst) / 100), 2) if gst else 0
+                total_net_wt=related_packing.total_net_wt if related_packing else 0
 
                 if item.part_no in invoice_map:
                 # Update existing invoice
                     inv = invoice_map[item.part_no]
                     inv.description = item.description
-                    inv.hsn = item.hsn
+                    inv.hsn = hsn
                     inv.qty = item.qty
-                    inv.per_unit = amt
-                    inv.total_amt = total_amt
+                    inv.per_unit_rupees = mrp
+                    inv.per_unit_dollar = amt
+                    inv.total_amt_dollar = total_amt
+                    inv.taxable_amt=tax_amt
+                    inv.gst= gst
+                    inv.gst_amt=gst_amt
+                    inv.total_net_wt=total_net_wt
                     invoice_objs_to_update.append(inv)
                 else:
                 # Create new invoice
@@ -72,18 +91,25 @@ class invoiceGenrate(APIView):
                         description=item.description,
                         hsn=item.hsn,
                         qty=item.qty,
-                        per_unit=amt,
-                        total_amt=total_amt
+                        per_unit_rupees=mrp,
+                        per_unit_dollar=amt,
+                        total_amt_dollar=total_amt,
+                        taxable_amt=mrp*item.qty,
+                        gst=gst,
+                        gst_amt=gst_amt,
+                        total_net_wt=total_net_wt
                     ))
             except (InvalidOperation, DivisionUndefined, ZeroDivisionError):
                 skipped_items.append(item.part_no)
                 continue
 
-    # Perform bulk operations
+        print(invoice_objs_to_create)
+        print(invoice_objs_to_update)
+        print(skipped_items)
         if invoice_objs_to_create:
             invoice.objects.bulk_create(invoice_objs_to_create, ignore_conflicts=True)
         if invoice_objs_to_update:
-            invoice.objects.bulk_update(invoice_objs_to_update, ['description', 'hsn', 'qty', 'per_unit', 'total_amt'])
+            invoice.objects.bulk_update(invoice_objs_to_update, ['description', 'hsn', 'qty', 'per_unit_rupees', 'per_unit_dollar','total_amt_dollar','taxable_amt','gst','gst_amt','total_net_wt'])
 
         return Response({
             "message": "Invoice generated/updated successfully",

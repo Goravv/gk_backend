@@ -46,7 +46,8 @@ def populate_merged_items(client,client_detail):
         hsn = excel.hsn_code 
         qty = item.qty 
         total_amt = mrp * qty
-        effective_price = round((total_amt * (100 - int(gst[str(tax)])) / 100), 2) if tax else 0
+        effective_price = round((total_amt * (100 - int(gst)) / 100), 2) if tax else 0
+
 
         doller_effective_price = round(effective_price/rupees , 2) 
 

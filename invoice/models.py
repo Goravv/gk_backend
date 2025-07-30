@@ -7,8 +7,13 @@ class invoice(models.Model):
     description = models.TextField()
     hsn = models.CharField(max_length=50, null=True, blank=True)
     qty = models.IntegerField()
-    per_unit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    total_amt = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    per_unit_rupees = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    per_unit_dollar = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    total_amt_dollar = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    taxable_amt = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    gst=models.IntegerField()
+    gst_amt=models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    total_net_wt=models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
 
     class Meta:
         constraints = [
