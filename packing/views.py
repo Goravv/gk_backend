@@ -370,69 +370,69 @@ class StockViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Stock.objects.filter(user=self.request.user)
 
+
+    
     @action(detail=False, methods=["post"], url_path="upload")
     def upload_excel(self, request):
-        excel_file = request.FILES.get("file")
-        if not excel_file:
-            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"error": "No file uploaded"}, status=400)
 
         try:
-            df = pd.read_excel(BytesIO(excel_file.read()))
-            required_columns = {"part_no", "description", "qty", "brand_name"}
-
-            if not required_columns.issubset(df.columns):
-                return Response({"error": f"Missing columns. Required: {required_columns}"}, status=400)
-
-        # Clean and normalize data
-            df = df[required_columns]
-            df["part_no"] = df["part_no"].astype(str).str.strip()
-            df["description"] = df["description"].astype(str).str.strip()
-            df["brand_name"] = df["brand_name"].astype(str).str.strip()
-            df["qty"] = df["qty"].astype(int)
-
-        # Collect all part numbers
-            part_nos = df["part_no"].unique()
-            user = request.user
-
-        # Get existing stocks for this user
-            existing_stocks = Stock.objects.filter(user=user, part_no__in=part_nos)
-            existing_dict = {stock.part_no: stock for stock in existing_stocks}
-
-            stocks_to_create = []
-            stocks_to_update = []
-
-            for _, row in df.iterrows():
-                part_no = row["part_no"]
-                if part_no in existing_dict:
-                    stock = existing_dict[part_no]
-                    stock.qty += row["qty"]
-                    stock.description = row["description"]
-                    stock.brand_name = row["brand_name"]
-                    stocks_to_update.append(stock)
-                else:
-                    stocks_to_create.append(Stock(
-                        part_no=part_no,
-                        description=row["description"],
-                        qty=row["qty"],
-                        brand_name=row["brand_name"],
-                        user=user
-                    ))
-
-        # Bulk operations
-            if stocks_to_create:
-                Stock.objects.bulk_create(stocks_to_create)
-
-            if stocks_to_update:
-                Stock.objects.bulk_update(stocks_to_update, ["qty", "description", "brand_name"])
-
-            return Response({
-                "message": "Stock Excel processed successfully",
-                "created": len(stocks_to_create),
-                "updated": len(stocks_to_update)
-            }, status=status.HTTP_200_OK)
-
+            df = pd.read_excel(BytesIO(file.read()))
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Failed to read Excel file: {str(e)}"}, status=400)
+
+        required_columns = ["part_no", "description", "qty", "brand_name"]
+        if not set(required_columns).issubset(df.columns):
+            return Response({"error": f"Missing required columns: {required_columns}"}, status=400)
+
+    # Clean data
+        df = df[required_columns]
+        df.dropna(subset=["part_no", "description", "qty", "brand_name"], inplace=True)
+        df["part_no"] = df["part_no"].astype(str).str.strip()
+        df["description"] = df["description"].astype(str).str.strip()
+        df["brand_name"] = df["brand_name"].astype(str).str.strip()
+        df["qty"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0).astype(int)
+
+        part_nos = df["part_no"].unique()
+        user = request.user
+
+        existing_stocks = Stock.objects.filter(user=user, part_no__in=part_nos)
+        existing_map = {stock.part_no: stock for stock in existing_stocks}
+
+        stocks_to_create = []
+        stocks_to_update = []
+
+        for _, row in df.iterrows():
+            part_no = row["part_no"]
+            if part_no in existing_map:
+                stock = existing_map[part_no]
+                stock.qty += row["qty"]
+                stock.description = row["description"]
+                stock.brand_name = row["brand_name"]
+                stocks_to_update.append(stock)
+            else:
+                stocks_to_create.append(Stock(
+                    user=user,
+                    part_no=row["part_no"],
+                    description=row["description"],
+                    qty=row["qty"],
+                    brand_name=row["brand_name"]
+                ))
+
+    # Bulk DB operations
+        if stocks_to_create:
+            Stock.objects.bulk_create(stocks_to_create)
+
+        if stocks_to_update:
+            Stock.objects.bulk_update(stocks_to_update, ["qty", "description", "brand_name"])
+
+        return Response({
+            "message": "Stock uploaded successfully",
+            "created": len(stocks_to_create),
+            "updated": len(stocks_to_update)
+        }, status=200)
 class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PackingDetailSerializer
