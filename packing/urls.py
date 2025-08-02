@@ -12,4 +12,5 @@ urlpatterns = [
     path('', include(router.urls)), 
     path("net-weight/", NetWeightView.as_view(), name="net_wt"),
     path("set-csrf-cookie/", set_csrf_cookie),
+#     path("netwt_upload",netwt_upload)
 ]

@@ -38,22 +38,27 @@ class UploadExcelView(APIView):
         df = df.dropna(subset=['Item Code'])
         # Convert HSN Code to integer
         try:
-            df['HSN Code'] = df['HSN Code'].fillna(0).astype(int)
+            def safe_hsn(val):
+                try:
+                    return int(str(val).strip())
+                except (ValueError, TypeError):
+                    return 0
+
+            df['HSN Code'] = df['HSN Code'].apply(safe_hsn)
         except Exception as e:
             return Response({"error": f"HSN Code conversion failed: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Clean GST % field for CharField, store as string like "18%"
-        def clean_gst(val):
-            if pd.isna(val):
-                return "0%"
-            if isinstance(val, str):
-                val = val.strip().replace('%', '')
+        def is_valid_gst(val):
             try:
-                return f"{float(val):.0f}%"
-            except ValueError:
-                return "0%"
+                int(str(val).strip())
+                return True
+            except (ValueError, TypeError):
+                return False
 
-        df['GST %'] = df['GST %']
+        df = df[df['GST %'].apply(is_valid_gst)]
+
+        df['GST %'] = df['GST %'].apply(lambda val: int(str(val).strip()))
 
         # Create a mapping of Item Code to row
         incoming_data = {

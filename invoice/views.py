@@ -47,7 +47,7 @@ class invoiceGenrate(APIView):
         invoice_map = {inv.part_no: inv for inv in existing_invoices}
 
         for item in merged_items:
-            print(item)
+            
             try:
                 related_mrp_data = mrp_data.filter(item_code=item.part_no).first()
                 if not related_mrp_data:

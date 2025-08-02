@@ -2,6 +2,7 @@ from client.models import Client
 from orderItem.models import Item
 from excelFile.models import ExcelData
 from .models import MergedItem
+from decimal import Decimal
 
 
 def populate_merged_items(client,client_detail):
@@ -12,9 +13,14 @@ def populate_merged_items(client,client_detail):
     items = list(Item.objects.filter(client=client))
     
     rupees=int(client_detail.rupees)
-    gst=client_detail.gst
-    
+    gst = client_detail.gst  # This is a list of dicts
+    print(gst)
+    gst_discount = {}
 
+    for obj in gst:
+        gst_discount[int(obj['gst'])] = Decimal(obj['discount'])
+
+    print(gst_discount)
 
     # Fetch all ExcelData rows needed in a single query
     part_nos = [item.part_no for item in items if item.part_no]
@@ -46,7 +52,7 @@ def populate_merged_items(client,client_detail):
         hsn = excel.hsn_code 
         qty = item.qty 
         total_amt = mrp * qty
-        effective_price = round((total_amt * (100 - int(gst)) / 100), 2) if tax else 0
+        effective_price = round((total_amt * (100 - gst_discount[tax]) / 100), 2) if tax else 0
 
 
         doller_effective_price = round(effective_price/rupees , 2) 
@@ -78,6 +84,7 @@ def populate_merged_items(client,client_detail):
                 doller_effective_price=doller_effective_price,
                 client=client,
             ))
+    print(missing_part,to_create,to_update)
 
     if to_update:
         MergedItem.objects.bulk_update(

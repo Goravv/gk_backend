@@ -340,6 +340,28 @@ class PackingViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(new_packings + updated_packings, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+    @action(detail=False, methods=['post'], url_path='netwt_upload')
+    def netwt_upload(self,request):
+        file=request.FILES.get('file')
+        try:
+            df = pd.read_excel(BytesIO(file.read()))
+        except:
+            pass
+        objs_to_create = []
+        for _, row in df.iterrows():
+            part_no = str(row["part_no"]).strip()
+            net_wt= str(row["net_wt"]).strip()
+            count = 1
+            print(part_no,net_wt,count)
+            objs_to_create.append(NetWeight(
+                part_no=part_no,
+                net_wt=net_wt,
+                count=count
+            ))
+        NetWeight.objects.bulk_create(objs_to_create, ignore_conflicts=True)
+        return Response({"message": "Data uploaded successfully"}, status=200)
 
 class StockViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -361,39 +383,56 @@ class StockViewSet(viewsets.ModelViewSet):
             if not required_columns.issubset(df.columns):
                 return Response({"error": f"Missing columns. Required: {required_columns}"}, status=400)
 
-            created_count = 0
-            updated_count = 0
+        # Clean and normalize data
+            df = df[required_columns]
+            df["part_no"] = df["part_no"].astype(str).str.strip()
+            df["description"] = df["description"].astype(str).str.strip()
+            df["brand_name"] = df["brand_name"].astype(str).str.strip()
+            df["qty"] = df["qty"].astype(int)
+
+        # Collect all part numbers
+            part_nos = df["part_no"].unique()
+            user = request.user
+
+        # Get existing stocks for this user
+            existing_stocks = Stock.objects.filter(user=user, part_no__in=part_nos)
+            existing_dict = {stock.part_no: stock for stock in existing_stocks}
+
+            stocks_to_create = []
+            stocks_to_update = []
 
             for _, row in df.iterrows():
-                part_no = str(row["part_no"]).strip()
-                description = str(row["description"]).strip()
-                qty = int(row["qty"])
-                brand_name = str(row["brand_name"]).strip()
-
-                stock, created = Stock.objects.get_or_create(part_no=part_no, user=request.user, defaults={
-                    "description": description,
-                    "qty": qty,
-                    "brand_name": brand_name,
-                })
-
-                if not created:
-                    stock.qty += qty
-                    stock.description = description
-                    stock.brand_name = brand_name
-                    stock.save()
-                    updated_count += 1
+                part_no = row["part_no"]
+                if part_no in existing_dict:
+                    stock = existing_dict[part_no]
+                    stock.qty += row["qty"]
+                    stock.description = row["description"]
+                    stock.brand_name = row["brand_name"]
+                    stocks_to_update.append(stock)
                 else:
-                    created_count += 1
+                    stocks_to_create.append(Stock(
+                        part_no=part_no,
+                        description=row["description"],
+                        qty=row["qty"],
+                        brand_name=row["brand_name"],
+                        user=user
+                    ))
+
+        # Bulk operations
+            if stocks_to_create:
+                Stock.objects.bulk_create(stocks_to_create)
+
+            if stocks_to_update:
+                Stock.objects.bulk_update(stocks_to_update, ["qty", "description", "brand_name"])
 
             return Response({
                 "message": "Stock Excel processed successfully",
-                "created": created_count,
-                "updated": updated_count
+                "created": len(stocks_to_create),
+                "updated": len(stocks_to_update)
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PackingDetailSerializer
@@ -507,6 +546,11 @@ class NetWeightView(APIView):
             "created": created
         }, status=201 if created else 200)
     
+
+    
+    
+    
 @ensure_csrf_cookie
 def set_csrf_cookie(request):
     return JsonResponse({"message": "CSRF cookie set"})
+
