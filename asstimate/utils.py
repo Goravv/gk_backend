@@ -43,6 +43,7 @@ def populate_merged_items(client,client_detail):
         excel = excel_data_map.get(part_no)
         if not excel:
             part_no='0'+part_no
+            print(part_no)
             excel = excel_data_map.get(part_no)
             if not excel:
                 part_no=part_no[1:]
