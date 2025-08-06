@@ -13,14 +13,11 @@ def populate_merged_items(client,client_detail):
     items = list(Item.objects.filter(client=client))
     
     rupees=int(client_detail.rupees)
-    gst = client_detail.gst  # This is a list of dicts
-    print(gst)
+    gst = client_detail.gst 
     gst_discount = {}
 
     for obj in gst:
         gst_discount[int(obj['gst'])] = Decimal(obj['discount'])
-
-    print(gst_discount)
 
     # Fetch all ExcelData rows needed in a single query
     part_nos = [item.part_no for item in items if item.part_no]
@@ -42,13 +39,18 @@ def populate_merged_items(client,client_detail):
         part_no=item.part_no
         excel = excel_data_map.get(part_no)
         if not excel:
-            part_no='0'+part_no
-            print(part_no)
-            excel = excel_data_map.get(part_no)
+            part_no_with_zero = '0' + part_no
+            excel = excel_data_map.get(part_no_with_zero)
             if not excel:
-                part_no=part_no[1:]
-                missing_part.append(part_no)
-                continue
+                try:
+                    excel = ExcelData.objects.get(item_code=part_no_with_zero)
+                    excel_data_map[part_no_with_zero] = excel
+                    part_no = part_no_with_zero  
+                except ExcelData.DoesNotExist:
+                    missing_part.append(part_no)
+                    continue
+            else:
+                part_no = part_no_with_zero
 
 
         description = item.description 
@@ -89,7 +91,6 @@ def populate_merged_items(client,client_detail):
                 doller_effective_price=doller_effective_price,
                 client=client,
             ))
-    print(missing_part,to_create,to_update)
 
     if to_update:
         MergedItem.objects.bulk_update(
@@ -103,12 +104,6 @@ def populate_merged_items(client,client_detail):
     if to_create:
         MergedItem.objects.bulk_create(to_create)
     return missing_part
-
-
-
-
-
-
 
 
 
