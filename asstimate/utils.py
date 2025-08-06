@@ -39,11 +39,15 @@ def populate_merged_items(client,client_detail):
     for item in items:
         if not item.part_no:
             raise ValueError(f"Missing part_no in item: {item}")
-
-        excel = excel_data_map.get(item.part_no)
+        part_no=item.part_no
+        excel = excel_data_map.get(part_no)
         if not excel:
-            missing_part.append(item.part_no)
-            continue
+            part_no='0'+part_no
+            excel = excel_data_map.get(part_no)
+            if not excel:
+                part_no=part_no[1:]
+                missing_part.append(part_no)
+                continue
 
 
         description = item.description 
@@ -57,7 +61,7 @@ def populate_merged_items(client,client_detail):
 
         doller_effective_price = round(effective_price/rupees , 2) 
 
-        existing = existing_map.get(item.part_no)
+        existing = existing_map.get(part_no)
 
         if existing:
             # Update existing
@@ -73,7 +77,7 @@ def populate_merged_items(client,client_detail):
         else:
             # Create new
             to_create.append(MergedItem(
-                part_no=item.part_no,
+                part_no=part_no,
                 description=description,
                 qty=qty,
                 mrp=mrp,
@@ -140,7 +144,7 @@ def populate_merged_items(client,client_detail):
 # #     # Merge Item and ExcelData rows
 # #     for item in Item.objects.filter(client=client):
 # #         try:
-# #             excel = ExcelData.objects.get(item_code=item.part_no)
+# #             excel = ExcelData.objects.get(item_code=part_no)
 # #             if item.description is None:
 # #                 item.description = excel.description
 # #             mrp = excel.mrp_per_unit

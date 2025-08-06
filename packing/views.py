@@ -433,6 +433,38 @@ class StockViewSet(viewsets.ModelViewSet):
             "created": len(stocks_to_create),
             "updated": len(stocks_to_update)
         }, status=200)
+    
+
+
+    @action(detail=False, methods=['post'], url_path='update-qty')
+    def update_quantity(self, request):
+        part_no = request.data.get('part_no')
+        qty_change = request.data.get('qty')
+
+        if part_no is None or qty_change is None:
+            return Response({"error": "Both 'part_no' and 'qty' are required."}, status=400)
+
+        try:
+            qty_change = int(qty_change)
+        except ValueError:
+            return Response({"error": "'qty' must be an integer."}, status=400)
+
+        try:
+            stock = Stock.objects.get(user=request.user, part_no=part_no)
+        except Stock.DoesNotExist:
+            return Response({"error": "Stock with this part number not found."}, status=404)
+
+        stock.qty = qty_change
+
+        if stock.qty <= 0:
+            stock.delete()
+            return Response({"message": "Stock deleted because qty <= 0."}, status=200)
+        else:
+            stock.save()
+            return Response({"message": "Stock updated successfully.", "new_qty": stock.qty}, status=200)
+        
+
+
 class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PackingDetailSerializer
