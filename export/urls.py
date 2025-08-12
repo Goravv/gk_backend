@@ -16,8 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
-from rest_framework_simplejwt.views import TokenRefreshView
-from users.views import SingleSessionTokenObtainPairView, SingleSessionTokenRefreshView
+from users.views import SingleSessionTokenObtainPairView, SingleSessionTokenRefreshView,LogoutView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,5 +28,6 @@ urlpatterns = [
     path('api/invoice/', include('invoice.urls')),  
     path('api/token/', SingleSessionTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', SingleSessionTokenRefreshView.as_view(), name='token_refresh'),
-    path('api/user/',include('users.urls'))
+    path('api/user/',include('users.urls')),
+    path('api/logout/', LogoutView.as_view(), name='logout'),
 ]

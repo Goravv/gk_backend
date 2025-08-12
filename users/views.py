@@ -11,6 +11,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.views import APIView
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
@@ -80,3 +81,25 @@ class SingleSessionTokenRefreshView(TokenRefreshView):
         User = get_user_model()
         user_id = token.get("user_id")
         return User.objects.get(id=user_id)
+    
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        # Blacklist all tokens for this user
+        try:
+            tokens = OutstandingToken.objects.filter(user=user)
+            for token in tokens:
+                BlacklistedToken.objects.get_or_create(token=token)
+        except Exception:
+            pass
+
+        # Clear JTIs so even valid tokens get rejected
+        user.last_jti = None
+        user.last_refresh_jti = None
+        user.save(update_fields=["last_jti", "last_refresh_jti"])
+
+        return Response({"detail": "Logged out from all devices."}, status=status.HTTP_200_OK)
