@@ -8,6 +8,9 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from django.contrib.auth import authenticate
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.views import TokenRefreshView
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
@@ -19,6 +22,9 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
 class SingleSessionTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         username = request.data.get("username")
@@ -28,22 +34,49 @@ class SingleSessionTokenObtainPairView(TokenObtainPairView):
         if not user:
             return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Blacklist old token if exists
-        if user.last_refresh_token:
-            try:
-                old_token = RefreshToken(user.last_refresh_token)
-                old_token.blacklist()
-            except Exception:
-                pass
+        # Blacklist all existing tokens for this user
+        try:
+            tokens = OutstandingToken.objects.filter(user=user)
+            for token in tokens:
+                BlacklistedToken.objects.get_or_create(token=token)
+        except Exception:
+            pass
 
-        # Create new tokens
+        # Create new token pair
         refresh = RefreshToken.for_user(user)
+        access_jti = refresh.access_token.get("jti")
+        refresh_jti = refresh.get("jti")
 
-        # Store the new refresh token in DB
-        user.last_refresh_token = str(refresh)
-        user.save(update_fields=["last_refresh_token"])
+        # Store both JTIs
+        user.last_jti = access_jti
+        user.last_refresh_jti = refresh_jti
+        user.save(update_fields=["last_jti", "last_refresh_jti"])
 
         return Response({
             "refresh": str(refresh),
             "access": str(refresh.access_token)
         })
+
+class SingleSessionTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token_str = request.data.get("refresh")
+        if not refresh_token_str:
+            raise AuthenticationFailed("Refresh token required.")
+
+        try:
+            refresh_token = RefreshToken(refresh_token_str)
+        except Exception:
+            raise AuthenticationFailed("Invalid refresh token.")
+
+        user = self.get_user_from_token(refresh_token)
+
+        if user.last_refresh_jti != refresh_token.get("jti"):
+            raise AuthenticationFailed("Session expired. Please log in again.")
+
+        return super().post(request, *args, **kwargs)
+
+    def get_user_from_token(self, token):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user_id = token.get("user_id")
+        return User.objects.get(id=user_id)

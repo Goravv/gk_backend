@@ -43,6 +43,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     # Session control
     last_refresh_token = models.TextField(blank=True, null=True)
+    last_jti = models.CharField(max_length=255, null=True, blank=True) 
+    last_refresh_jti = models.CharField(max_length=255, null=True, blank=True) 
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

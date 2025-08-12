@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path,include
 from rest_framework_simplejwt.views import TokenRefreshView
-from users.views import SingleSessionTokenObtainPairView
+from users.views import SingleSessionTokenObtainPairView, SingleSessionTokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,7 +27,7 @@ urlpatterns = [
     path('api/asstimate/', include('asstimate.urls')), 
     path('api/packing/', include('packing.urls')),  
     path('api/invoice/', include('invoice.urls')),  
-     path('api/token/', SingleSessionTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/', SingleSessionTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', SingleSessionTokenRefreshView.as_view(), name='token_refresh'),
     path('api/user/',include('users.urls'))
 ]
