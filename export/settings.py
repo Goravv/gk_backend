@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles',
     'rest_framework', 'rest_framework_simplejwt', 'corsheaders',
     'excelFile', 'orderItem', 'asstimate', 'packing', 'client','invoice','users',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -130,3 +131,9 @@ LOGGING = {
 
 
 AUTH_USER_MODEL = 'users.CustomUser'
+
+
+
+SIMPLE_JWT = {
+    "BLACKLIST_AFTER_ROTATION": True,
+}

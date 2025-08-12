@@ -25,7 +25,7 @@ class CustomUserManager(BaseUserManager):
 # Step 3.2: Custom User Model
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150, unique=True)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     address = models.TextField(blank=True, null=True)
 
     # Bank details
@@ -40,6 +40,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     exporter_reference_number = models.CharField(max_length=100, blank=True, null=True)
     pan = models.CharField(max_length=20, blank=True, null=True)
     iec = models.CharField(max_length=20, blank=True, null=True)
+
+    # Session control
+    last_refresh_token = models.TextField(blank=True, null=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
