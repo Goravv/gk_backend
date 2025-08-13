@@ -368,7 +368,10 @@ class StockViewSet(viewsets.ModelViewSet):
     serializer_class = StockSerializer
 
     def get_queryset(self):
-        return Stock.objects.filter(user=self.request.user)
+        if self.request.user.is_staff:
+            return Stock.objects.filter(user=self.request.user)
+        else:
+            return Stock.objects.filter(user=self.request.user.parent_id)
 
 
     
