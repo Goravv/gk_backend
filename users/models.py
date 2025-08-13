@@ -41,6 +41,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     pan = models.CharField(max_length=20, blank=True, null=True)
     iec = models.CharField(max_length=20, blank=True, null=True)
 
+    parent_id = models.IntegerField()
+
     # Session control
     last_refresh_token = models.TextField(blank=True, null=True)
     last_jti = models.CharField(max_length=255, null=True, blank=True) 

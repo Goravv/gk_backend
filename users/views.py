@@ -6,12 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework import status
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.views import APIView
+from rest_framework import generics, status
+from .serializers import RegistrationSerializer
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
@@ -23,8 +24,6 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 class SingleSessionTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
@@ -103,3 +102,16 @@ class LogoutView(APIView):
         user.save(update_fields=["last_jti", "last_refresh_jti"])
 
         return Response({"detail": "Logged out from all devices."}, status=status.HTTP_200_OK)
+    
+
+class RegistrationView(generics.CreateAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = RegistrationSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("Validation errors:", serializer.errors)  
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
