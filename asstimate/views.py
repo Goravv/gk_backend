@@ -20,7 +20,7 @@ class MergedItemListView(APIView):
 
         try:
             client = Client.objects.get(
-                user=request.user,
+                
                 client_name=client_name.strip(),
                 marka=marka.strip()
             )

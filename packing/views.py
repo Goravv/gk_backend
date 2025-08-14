@@ -30,7 +30,7 @@ class PackingViewSet(viewsets.ModelViewSet):
 
         if client_name and marka:
             try:
-                client = Client.objects.get(client_name=client_name, marka=marka, user=self.request.user)
+                client = Client.objects.get(client_name=client_name, marka=marka)
                 return Packing.objects.select_related("client").filter(client=client)
             except Client.DoesNotExist:
                 return Packing.objects.none()
@@ -475,10 +475,9 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         client_name = self.request.query_params.get('client')
         marka = self.request.query_params.get('marka')
-
         if client_name and marka:
             try:
-                client = Client.objects.get(client_name=client_name, marka=marka, user=self.request.user)
+                client = Client.objects.get(client_name=client_name, marka=marka)
                 packing=PackingDetail.objects.filter(client=client).order_by('id')
                 return packing
             except Client.DoesNotExist:
@@ -505,6 +504,44 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
         self.perform_create(serializer)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+
+    def put(self, request, *args, **kwargs):
+        client_name = request.data.get('client')
+        marka = request.data.get('marka')
+        if not client_name or not marka:
+            return Response({"error": "Both client_name and marka are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client name or marka"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+        pk = request.data.get('id')
+        if not pk:
+            return Response({"error": "ID is required for update"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            packing_detail = PackingDetail.objects.get(pk=pk, client_id=client.id)
+        except PackingDetail.DoesNotExist:
+            return Response({"error": "Record not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        data = request.data.copy()
+        data['client'] = client.id
+
+        # Ensure only model fields are updated
+        allowed_fields = [f.name for f in PackingDetail._meta.fields]
+        cleaned_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+        serializer = self.get_serializer(packing_detail, data=cleaned_data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class UpdatePackingDetailByCase(APIView):

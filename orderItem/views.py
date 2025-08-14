@@ -144,7 +144,7 @@ class ItemListView(APIView):
             return Response({"error": "Client name and marka required"}, status=400)
 
         try:
-            client = Client.objects.get(user=request.user, client_name=client_name, marka=marka)
+            client = Client.objects.get( client_name=client_name, marka=marka)
         except Client.DoesNotExist:
             return Response({"error": "Client not found"}, status=404)
 
@@ -198,3 +198,49 @@ class DeleteAllItemsView(APIView):
 
         Item.objects.filter(client=client).delete()
         return Response({"message": "All items for client deleted"})
+
+
+
+
+
+class UpdateItemQtyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        part_no = request.data.get("partNo")
+        qty = request.data.get("qty")
+        client_name = request.data.get("client_name")
+        marka = request.data.get("marka")
+
+        # Validate input
+        if not part_no or qty is None:
+            return Response({"error": "partNo and qty are required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not client_name or not marka:
+            return Response({"error": "client_name and marka are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            qty = int(qty)
+        except ValueError:
+            return Response({"error": "qty must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Ensure this client belongs to the logged-in user
+            client = Client.objects.get(user=request.user, client_name=client_name, marka=marka)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            # Find the item for that client
+            item = Item.objects.get(part_no=part_no, client=client)
+        except Item.DoesNotExist:
+            return Response({"error": "Item not found for this client"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Update qty
+        item.qty = qty
+        item.save()
+
+        return Response({
+            "message": f"Quantity updated for part {part_no}",
+            "part_no": item.part_no,
+            "qty": item.qty
+        }, status=status.HTTP_200_OK)
