@@ -508,22 +508,31 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
 
 
     def put(self, request, *args, **kwargs):
-        client_name = request.data.get('client')
+        client_name = request.data.get('client_name')
         marka = request.data.get('marka')
+        
         if not client_name or not marka:
             return Response({"error": "Both client_name and marka are required"}, status=status.HTTP_400_BAD_REQUEST)
+        lookup_user = request.user if request.user.is_staff else request.user.parent_id
 
+        print("Looking for client_name:", client_name)
+        print("Marka:", marka)
+        print("User for client lookup:", lookup_user)
         try:
-            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+            if request.user.is_staff:
+                client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+            else:
+                client = Client.objects.get(client_name=client_name, marka=marka, user=request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=status.HTTP_400_BAD_REQUEST)
         
-
+        
         pk = request.data.get('id')
         if not pk:
             return Response({"error": "ID is required for update"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            print(client)
             packing_detail = PackingDetail.objects.get(pk=pk, client_id=client.id)
         except PackingDetail.DoesNotExist:
             return Response({"error": "Record not found"}, status=status.HTTP_404_NOT_FOUND)

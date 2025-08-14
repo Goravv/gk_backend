@@ -13,6 +13,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.views import APIView
 from rest_framework import generics, status
 from .serializers import RegistrationSerializer
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
@@ -22,6 +24,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
 
 
 
@@ -39,8 +42,18 @@ class SingleSessionTokenObtainPairView(TokenObtainPairView):
             tokens = OutstandingToken.objects.filter(user=user)
             for token in tokens:
                 BlacklistedToken.objects.get_or_create(token=token)
-        except Exception:
-            pass
+
+            # 🔔 Notify all active sessions via WebSocket
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user.id}",
+                {
+                    "type": "logout.message",
+                    "message": "You have been logged out due to a new login from another device."
+                }
+            )
+        except Exception as e:
+            print("Error blacklisting tokens or sending logout message:", e)
 
         # Create new token pair
         refresh = RefreshToken.for_user(user)
@@ -56,7 +69,8 @@ class SingleSessionTokenObtainPairView(TokenObtainPairView):
             "refresh": str(refresh),
             "access": str(refresh.access_token)
         })
-
+    
+    
 class SingleSessionTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         refresh_token_str = request.data.get("refresh")

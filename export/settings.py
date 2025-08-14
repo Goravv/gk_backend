@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles',
     'rest_framework', 'rest_framework_simplejwt', 'corsheaders',
     'excelFile', 'orderItem', 'asstimate', 'packing', 'client','invoice','users',
-    'rest_framework_simplejwt.token_blacklist',
+    'rest_framework_simplejwt.token_blacklist','channels',
 ]
 
 MIDDLEWARE = [
@@ -137,4 +137,17 @@ AUTH_USER_MODEL = 'users.CustomUser'
 SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
+}
+
+
+ASGI_APPLICATION = 'GK.asgi.application'
+
+# Use Redis as the channel layer backend    
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
 }
