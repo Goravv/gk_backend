@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from datetime import timedelta
 import dj_database_url
 import dotenv
 dotenv.load_dotenv()
@@ -20,7 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles',
     'rest_framework', 'rest_framework_simplejwt', 'corsheaders',
     'excelFile', 'orderItem', 'asstimate', 'packing', 'client','invoice','users',
-    'rest_framework_simplejwt.token_blacklist','channels',
+    'rest_framework_simplejwt.token_blacklist','channels','single_session'
 ]
 
 MIDDLEWARE = [
@@ -135,12 +136,14 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 
 SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),   # auto-expire in 30 min
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=24),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
 
-ASGI_APPLICATION = 'GK.asgi.application'
+ASGI_APPLICATION = 'export.asgi.application'
 
 # Use Redis as the channel layer backend    
 CHANNEL_LAYERS = {
@@ -151,3 +154,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
