@@ -1,1 +1,1 @@
-web: gunicorn export.wsgi:application --workers 2 --worker-class gthread --timeout 240
+web: daphne -b 0.0.0.0 -p 8000 export.asgi:application
