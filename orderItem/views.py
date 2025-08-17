@@ -54,7 +54,7 @@ class UploadExcelView(APIView):
             return Response({"error": "Client name and marka are required"}, status=400)
 
         # Get or create the client
-        client, _ = Client.objects.get_or_create(
+        client = Client.objects.get(
             user=request.user,
             client_name=client_name.strip(),
             marka=marka.strip()

@@ -1,2 +1,2 @@
-web: daphne -b 0.0.0.0 -p $PORT export.asgi:application
+    web: daphne -b 0.0.0.0 -p $PORT export.asgi:application
 
