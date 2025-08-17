@@ -212,7 +212,7 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
     @action(detail=False, methods=['post'], url_path='sync-stock')
     def sync_stock_qty(self, request):
-        all_packing = Packing.objects.filter(client__user=request.user if request.user.is_staff else request.user.parent_id)
+        all_packing = Packing.objects.all()
         part_nos = [p.part_no for p in all_packing if p.part_no]
 
     # Get all stocks for the current user with relevant part numbers
