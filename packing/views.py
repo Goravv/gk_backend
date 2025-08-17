@@ -490,34 +490,29 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
 
         if not client_name or not marka:
             return Response({"error": "Both client_name and marka are required"}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
+            main_user=request.user if request.user.is_staff else request.user.parent_id
+            print(main_user)
+            client = Client.objects.get(client_name=client_name, marka=marka, user=main_user)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=status.HTTP_400_BAD_REQUEST)
-
         data = request.data.copy()
         data['client'] = client.id
-
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 
     def put(self, request, *args, **kwargs):
+        
         client_name = request.data.get('client_name')
         marka = request.data.get('marka')
-        
         if not client_name or not marka:
             return Response({"error": "Both client_name and marka are required"}, status=status.HTTP_400_BAD_REQUEST)
         lookup_user = request.user if request.user.is_staff else request.user.parent_id
 
-        print("Looking for client_name:", client_name)
-        print("Marka:", marka)
-        print("User for client lookup:", lookup_user)
         try:
             if request.user.is_staff:
                 client = Client.objects.get(client_name=client_name, marka=marka, user=request.user )
