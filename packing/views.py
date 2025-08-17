@@ -30,11 +30,11 @@ class PackingViewSet(viewsets.ModelViewSet):
 
         if client_name and marka:
             try:
-                client = Client.objects.get(client_name=client_name, marka=marka)
+                client = Client.objects.get(client_name=client_name, marka=marka,user=self.request.user if self.request.user.is_staff else self.request.user.parent_id,)
                 return Packing.objects.select_related("client").filter(client=client)
             except Client.DoesNotExist:
                 return Packing.objects.none()
-        return Packing.objects.filter(client__user=self.request.user)
+        return Packing.objects.filter(client__user=self.request.user if self.request.user.is_staff else self.request.user.parent_id,)
 
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -54,12 +54,12 @@ class PackingViewSet(viewsets.ModelViewSet):
                     return Response({"error": "Both client_name and marka are required for all items"}, status=400)
 
                 try:
-                    client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+                    client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
                 except Client.DoesNotExist:
                     return Response({"error": f"Invalid client or marka for item with part_no '{part_no}'"}, status=400)
 
                 try:
-                    stock = Stock.objects.get(part_no=part_no, user=request.user)
+                    stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id)
                     stock_qty = stock.qty
                 except Stock.DoesNotExist:
                     stock_qty = 0
@@ -89,12 +89,12 @@ class PackingViewSet(viewsets.ModelViewSet):
                 return Response({"error": "Both client_name and marka are required"}, status=400)
 
             try:
-                client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+                client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
             except Client.DoesNotExist:
                 return Response({"error": "Invalid client name or marka"}, status=400)
 
             try:
-                stock = Stock.objects.get(part_no=part_no, user=request.user)
+                stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id)
                 stock_qty = stock.qty
             except Stock.DoesNotExist:
                 stock_qty = 0
@@ -118,7 +118,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             return Response({"error": "Both client_name and marka are required"}, status=400)
 
         try:
-            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=400)
 
@@ -128,7 +128,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             return Response({"error": "Packing item not found"}, status=404)
 
         try:
-            stock = Stock.objects.get(part_no=part_no, user=request.user)
+            stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id)
             stock.qty = max(stock.qty - qty, 0)
             if stock.qty == 0:
                 stock.delete()
@@ -138,7 +138,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             pass
 
         try:
-            packing.stock_qty = Stock.objects.get(part_no=part_no, user=request.user).qty
+            packing.stock_qty = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id).qty
         except Stock.DoesNotExist:
             packing.stock_qty = 0
 
@@ -160,7 +160,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             return Response({"error": "Both client_name and marka are required"}, status=400)
 
         try:
-            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=400)
 
@@ -169,7 +169,7 @@ class PackingViewSet(viewsets.ModelViewSet):
 
     # Fetch stock in one query
         stock_map = {
-            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user)
+            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user if request.user.is_staff else request.user.parent_id)
         }
 
     # Fetch existing packing in one query
@@ -212,13 +212,13 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
     @action(detail=False, methods=['post'], url_path='sync-stock')
     def sync_stock_qty(self, request):
-        all_packing = Packing.objects.filter(client__user=request.user)
+        all_packing = Packing.objects.filter(client__user=request.user if request.user.is_staff else request.user.parent_id)
         part_nos = [p.part_no for p in all_packing if p.part_no]
 
     # Get all stocks for the current user with relevant part numbers
         stock_map = {
             stock.part_no: stock.qty
-            for stock in Stock.objects.filter(user=request.user, part_no__in=part_nos)
+            for stock in Stock.objects.filter(user=request.user if request.user.is_staff else request.user.parent_id, part_no__in=part_nos)
         }
 
         to_update = []
@@ -249,7 +249,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             return Response({"error": "Both client_name and marka are required"}, status=400)
 
         try:
-            client = Client.objects.get(client_name=client_name.strip(), marka=marka.strip(), user=request.user)
+            client = Client.objects.get(client_name=client_name.strip(), marka=marka.strip(), user=request.user if request.user.is_staff else request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=400)
 
@@ -289,7 +289,7 @@ class PackingViewSet(viewsets.ModelViewSet):
 
     # Fetch stock and existing packing
         stock_map = {
-            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user)
+            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user if request.user.is_staff else request.user.parent_id)
         }
 
         existing_packing_map = {
@@ -453,7 +453,7 @@ class StockViewSet(viewsets.ModelViewSet):
             return Response({"error": "'qty' must be an integer."}, status=400)
 
         try:
-            stock = Stock.objects.get(user=request.user, part_no=part_no)
+            stock = Stock.objects.get(user=request.user if request.user.is_staff else request.user.parent_id, part_no=part_no)
         except Stock.DoesNotExist:
             return Response({"error": "Stock with this part number not found."}, status=404)
 
@@ -492,7 +492,7 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
             return Response({"error": "Both client_name and marka are required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -520,7 +520,7 @@ class PackingDetailListCreateAPIView(generics.ListCreateAPIView):
         print("User for client lookup:", lookup_user)
         try:
             if request.user.is_staff:
-                client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+                client = Client.objects.get(client_name=client_name, marka=marka, user=request.user )
             else:
                 client = Client.objects.get(client_name=client_name, marka=marka, user=request.user.parent_id)
         except Client.DoesNotExist:
@@ -568,7 +568,7 @@ class UpdatePackingDetailByCase(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user)
+            client = Client.objects.get(client_name=client_name, marka=marka, user=request.user if request.user.is_staff else request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client name or marka"}, status=400)
 

@@ -20,7 +20,7 @@ class MergedItemListView(APIView):
 
         try:
             client = Client.objects.get(
-                
+                user=request.user if request.user.is_staff else request.user.parent_id,
                 client_name=client_name.strip(),
                 marka=marka.strip()
             )
@@ -45,11 +45,11 @@ class MergeOrderItemWithExcel(APIView):
 
         try:
             client = Client.objects.get(
-                user=request.user,
+                user=request.user if request.user.is_staff else request.user.parent_id,
                 client_name=client_name.strip(),
                 marka=marka.strip()
             )
-            client_detail = Client.objects.filter(user=request.user,
+            client_detail = Client.objects.filter(user=request.user if request.user.is_staff else request.user.parent_id,
                 client_name=client_name.strip(),
                 marka=marka.strip()  ).first()
             

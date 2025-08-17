@@ -21,11 +21,11 @@ class invoiceGenrate(APIView):
             return Response({"error": "Client name is required"}, status=400)
 
         try:
-            client = Client.objects.get(client_name=client_name, user=request.user)
+            client = Client.objects.get(client_name=client_name, user=request.user if request.user.is_staff else request.user.parent_id)
         except Client.DoesNotExist:
             return Response({"error": "Invalid client"}, status=400)
 
-        client_detail = Client.objects.filter(client_name=client_name, user=request.user).first()
+        client_detail = Client.objects.filter(client_name=client_name, user=request.user if request.user.is_staff else request.user.parent_id).first()
         merged_items = Item.objects.filter(client=client)
         packing=PackingDetail.objects.filter(client=client)
         mrp_data=ExcelData.objects.all()
@@ -125,7 +125,7 @@ class invoiceGenrate(APIView):
             return Response({"error": "Client name and marka are required"}, status=400)
 
         try:
-            client = Client.objects.get(user=request.user, client_name=client_name, marka=marka)
+            client = Client.objects.get(user=request.user if request.user.is_staff else request.user.parent_id, client_name=client_name, marka=marka)
         except Client.DoesNotExist:
             return Response({"error": "Client not found"}, status=404)
 

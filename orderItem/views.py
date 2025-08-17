@@ -10,39 +10,6 @@ from django.db import transaction
 import pandas as pd 
 
 
-# class UploadExcelView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
-
-#     def post(self, request):
-#         file = request.FILES.get('file')
-#         client_name = request.POST.get('client_name')
-#         marka = request.POST.get('marka')
-
-#         if not file or not client_name or not marka:
-#             return Response({"error": "File, client name, and marka are required"}, status=400)
-
-#         # Get or create client ONLY for the current user
-#         client, created = Client.objects.get_or_create(
-#             user=request.user,
-#             client_name=client_name,
-#             marka=marka
-#         )
-
-#         try:
-#             items_data = parse_excel_file(file)
-#         except ValueError as e:
-#             return Response({"error": str(e)}, status=400)
-
-#         for item_data in items_data:
-#             item_data['client'] = client
-#             Item.objects.update_or_create(
-#                 part_no=item_data['part_no'],
-#                 client=client,
-#                 defaults=item_data
-#             )
-
-#         return Response({"message": "Excel data uploaded successfully"}, status=200)
-
 class UploadExcelView(APIView):
     permission_classes = [permissions.IsAuthenticated]                                                                                                                                                                                                                     
     def post(self, request):
@@ -55,7 +22,7 @@ class UploadExcelView(APIView):
 
         # Get or create the client
         client = Client.objects.get(
-            user=request.user,
+            user=request.user if request.user.is_staff else request.user.parent_id,
             client_name=client_name.strip(),
             marka=marka.strip()
         )
@@ -158,7 +125,7 @@ class ItemDetailView(APIView):
 
     def get(self, request, part_no):
         try:
-            item = Item.objects.get(part_no=part_no, client__user=request.user)
+            item = Item.objects.get(part_no=part_no, client__user=request.user if request.user.is_staff else request.user.parent)
         except Item.DoesNotExist:
             return Response({"error": "Item not found"}, status=404)
 
@@ -192,7 +159,7 @@ class DeleteAllItemsView(APIView):
             return Response({"error": "Client name and marka required"}, status=400)
 
         try:
-            client = Client.objects.get(user=request.user, client_name=client_name, marka=marka)
+            client = Client.objects.get(user=request.user if request.user.is_staff else request.user.parent_id, client_name=client_name, marka=marka)
         except Client.DoesNotExist:
             return Response({"error": "Client not found"}, status=404)
 
@@ -225,7 +192,7 @@ class UpdateItemQtyView(APIView):
 
         try:
             # Ensure this client belongs to the logged-in user
-            client = Client.objects.get(user=request.user, client_name=client_name, marka=marka)
+            client = Client.objects.get(user=request.user if request.user.is_staff else request.user.parent_id, client_name=client_name, marka=marka)
         except Client.DoesNotExist:
             return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
 
