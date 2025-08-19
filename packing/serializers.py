@@ -32,10 +32,6 @@ class PackingDetailSerializer(serializers.ModelSerializer):
         'part_no': {'validators': []}
     }
     def validate_client(self, client):
-        request = self.context.get('request')
-        main_user =request.user.id if request.user.is_staff else request.user.parent_id
-        if client.user.id != main_user:
-            raise serializers.ValidationError("You do not own this client.")
         return client
 
 
