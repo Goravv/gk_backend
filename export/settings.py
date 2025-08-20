@@ -158,3 +158,8 @@ CHANNEL_LAYERS = {
 
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
