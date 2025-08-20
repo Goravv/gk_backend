@@ -399,7 +399,7 @@ class StockViewSet(viewsets.ModelViewSet):
         df["qty"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0).astype(int)
 
         part_nos = df["part_no"].unique()
-        user = request.user.id if request.user.is_staff else request.user.parent_id
+        user = request.user
 
         existing_stocks = Stock.objects.filter(user=user, part_no__in=part_nos)
         existing_map = {stock.part_no: stock for stock in existing_stocks}
