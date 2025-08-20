@@ -16,7 +16,7 @@ class Packing(models.Model):
         ]
 
     def __str__(self):
-        return f"Packing #{self.packing_no}"
+        return f"Packing #{self.part_no}"
 
 
 class Stock(models.Model):
