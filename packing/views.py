@@ -59,7 +59,7 @@ class PackingViewSet(viewsets.ModelViewSet):
                     return Response({"error": f"Invalid client or marka for item with part_no '{part_no}'"}, status=400)
 
                 try:
-                    stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id)
+                    stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id,client=client)
                     stock_qty = stock.qty
                 except Stock.DoesNotExist:
                     stock_qty = 0
@@ -94,7 +94,7 @@ class PackingViewSet(viewsets.ModelViewSet):
                 return Response({"error": "Invalid client name or marka"}, status=400)
 
             try:
-                stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id)
+                stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id,client=client)
                 stock_qty = stock.qty
             except Stock.DoesNotExist:
                 stock_qty = 0
@@ -128,7 +128,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             return Response({"error": "Packing item not found"}, status=404)
 
         try:
-            stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id)
+            stock = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id,client=client)
             stock.qty = max(stock.qty - qty, 0)
             if stock.qty == 0:
                 stock.delete()
@@ -138,7 +138,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             pass
 
         try:
-            packing.stock_qty = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id).qty
+            packing.stock_qty = Stock.objects.get(part_no=part_no, user=request.user if request.user.is_staff else request.user.parent_id,client=client).qty
         except Stock.DoesNotExist:
             packing.stock_qty = 0
 
@@ -169,7 +169,7 @@ class PackingViewSet(viewsets.ModelViewSet):
 
     # Fetch stock in one query
         stock_map = {
-            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user if request.user.is_staff else request.user.parent_id)
+            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user if request.user.is_staff else request.user.parent_id,client=client)
         }
 
     # Fetch existing packing in one query
@@ -212,24 +212,35 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
     @action(detail=False, methods=['post'], url_path='sync-stock')
     def sync_stock_qty(self, request):
-        all_packing = Packing.objects.all()
-        part_nos = [p.part_no for p in all_packing if p.part_no]
+    # Filter only packings that belong to this user (through client)
+        if request.user.is_staff:
+            all_packing = Packing.objects.filter(client__user=request.user)
+        else:
+            all_packing = Packing.objects.filter(client__user=request.user.parent_id)
 
-    # Get all stocks for the current user with relevant part numbers
-        stock_map = {
-            stock.part_no: stock.qty
-            for stock in Stock.objects.filter(user=request.user if request.user.is_staff else request.user.parent_id, part_no__in=part_nos)
-        }
+    # Collect all (client_id, part_no) pairs from packing
+        packing_pairs = [(p.client_id, p.part_no) for p in all_packing if p.part_no]
+
+    # Fetch relevant stocks
+        stocks = Stock.objects.filter(
+            user=request.user if request.user.is_staff else request.user.parent_id,
+            client_id__in=[c for c, _ in packing_pairs],
+            part_no__in=[p for _, p in packing_pairs]
+        )
+
+    # Build a map: (client_id, part_no) -> stock.qty
+        stock_map = {(s.client_id, s.part_no): s.qty for s in stocks}
 
         to_update = []
         not_found = []
 
         for packing in all_packing:
-            if packing.part_no in stock_map:
-                packing.stock_qty = stock_map[packing.part_no]
+            key = (packing.client_id, packing.part_no)
+            if key in stock_map:
+                packing.stock_qty = stock_map[key]
                 to_update.append(packing)
             else:
-                not_found.append(packing.part_no)
+                not_found.append({"client": packing.client_id, "part_no": packing.part_no})
 
     # Bulk update stock_qty field
         if to_update:
@@ -238,9 +249,8 @@ class PackingViewSet(viewsets.ModelViewSet):
         return Response({
             "message": "Stock quantities synced.",
             "updated_count": len(to_update),
-            "not_found_part_nos": not_found
+            "not_found": not_found
         }, status=status.HTTP_200_OK)
-   
     @action(detail=False, methods=['post'], url_path='update_row_list')
     def update_row_list(self, request):
         client_name = request.data.get('client_name')
@@ -289,7 +299,7 @@ class PackingViewSet(viewsets.ModelViewSet):
 
     # Fetch stock and existing packing
         stock_map = {
-            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user if request.user.is_staff else request.user.parent_id)
+            s.part_no: s.qty for s in Stock.objects.filter(part_no__in=part_nos, user=request.user if request.user.is_staff else request.user.parent_id,client=client)
         }
 
         existing_packing_map = {
@@ -362,7 +372,6 @@ class PackingViewSet(viewsets.ModelViewSet):
             ))
         NetWeight.objects.bulk_create(objs_to_create, ignore_conflicts=True)
         return Response({"message": "Data uploaded successfully"}, status=200)
-
 class StockViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = StockSerializer
@@ -374,12 +383,71 @@ class StockViewSet(viewsets.ModelViewSet):
             return Stock.objects.filter(user=self.request.user.parent_id)
 
 
-    
+
+    @action(detail=False, methods=["post"], url_path="upload-single")
+    def upload_single(self, request):
+        client_id = request.data.get("client_id")
+        part_no = request.data.get("part_no")
+        description = request.data.get("description")
+        qty = request.data.get("qty")
+        brand_name = request.data.get("brand_name")
+
+        if not client_id or not part_no or not description or not qty or not brand_name:
+            return Response({"error": "All fields (client_id, part_no, description, qty, brand_name) are required"}, status=400)
+
+        try:
+            client = Client.objects.get(
+                id=client_id,
+                user=request.user if request.user.is_staff else request.user.parent_id
+            )
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client"}, status=400)
+
+        # check if stock already exists
+        stock, created = Stock.objects.get_or_create(
+            user=request.user,
+            client=client,
+            part_no=part_no,
+            defaults={
+                "description": description,
+                "qty": qty,
+                "brand_name": brand_name
+            }
+        )
+
+        if created:
+            message = "Stock created successfully"
+        else:
+            # update existing stock
+            stock.qty += int(qty)
+            stock.description = description
+            stock.brand_name = brand_name
+            stock.save()
+            message = "Stock updated successfully"
+
+        return Response({
+            "message": message,
+            "part_no": stock.part_no,
+            "qty": stock.qty,
+            "description": stock.description,
+            "brand_name": stock.brand_name
+        }, status=200)
+
+
     @action(detail=False, methods=["post"], url_path="upload")
     def upload_excel(self, request):
         file = request.FILES.get("file")
+        client_id = request.data.get("client_id")
+
         if not file:
             return Response({"error": "No file uploaded"}, status=400)
+        if not client_id:
+            return Response({"error": "No client provided"}, status=400)
+
+        try:
+            client = Client.objects.get(id=client_id, user=request.user if request.user.is_staff else request.user.parent_id)  # ensure client belongs to user
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client"}, status=400)
 
         try:
             df = pd.read_excel(BytesIO(file.read()))
@@ -390,7 +458,7 @@ class StockViewSet(viewsets.ModelViewSet):
         if not set(required_columns).issubset(df.columns):
             return Response({"error": f"Missing required columns: {required_columns}"}, status=400)
 
-    # Clean data
+        # Clean data
         df = df[required_columns]
         df.dropna(subset=["part_no", "description", "qty", "brand_name"], inplace=True)
         df["part_no"] = df["part_no"].astype(str).str.strip()
@@ -401,7 +469,8 @@ class StockViewSet(viewsets.ModelViewSet):
         part_nos = df["part_no"].unique()
         user = request.user
 
-        existing_stocks = Stock.objects.filter(user=user, part_no__in=part_nos)
+        # fetch existing stocks for this user+client+part_no
+        existing_stocks = Stock.objects.filter(user=user, client=client, part_no__in=part_nos)
         existing_map = {stock.part_no: stock for stock in existing_stocks}
 
         stocks_to_create = []
@@ -418,13 +487,14 @@ class StockViewSet(viewsets.ModelViewSet):
             else:
                 stocks_to_create.append(Stock(
                     user=user,
+                    client=client,  
                     part_no=row["part_no"],
                     description=row["description"],
                     qty=row["qty"],
                     brand_name=row["brand_name"]
                 ))
 
-    # Bulk DB operations
+        # Bulk DB operations
         if stocks_to_create:
             Stock.objects.bulk_create(stocks_to_create)
 
@@ -436,24 +506,27 @@ class StockViewSet(viewsets.ModelViewSet):
             "created": len(stocks_to_create),
             "updated": len(stocks_to_update)
         }, status=200)
-    
 
 
     @action(detail=False, methods=['post'], url_path='update-qty')
     def update_quantity(self, request):
         part_no = request.data.get('part_no')
         qty_change = request.data.get('qty')
-
+        client_id = request.data.get("client_id")
         if part_no is None or qty_change is None:
             return Response({"error": "Both 'part_no' and 'qty' are required."}, status=400)
-
+        if not client_id:
+            return Response({"error": "No client provided"}, status=400)
         try:
             qty_change = int(qty_change)
         except ValueError:
             return Response({"error": "'qty' must be an integer."}, status=400)
-
         try:
-            stock = Stock.objects.get(user=request.user if request.user.is_staff else request.user.parent_id, part_no=part_no)
+            client = Client.objects.get(id=client_id, user=request.user if request.user.is_staff else request.user.parent_id)  # ensure client belongs to user
+        except Client.DoesNotExist:
+            return Response({"error": "Invalid client"}, status=400)
+        try:
+            stock = Stock.objects.get(user=request.user if request.user.is_staff else request.user.parent_id, part_no=part_no,client=client)
         except Stock.DoesNotExist:
             return Response({"error": "Stock with this part number not found."}, status=404)
 

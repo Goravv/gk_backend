@@ -17,12 +17,7 @@ class StockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
         fields = '__all__'
-        read_only_fields = ['user']  # user is set from request
-
-    def create(self, validated_data):
-        validated_data['user'] = self.context['request'].user
-        return super().create(validated_data)
-
+        read_only_fields = ['user'] 
 
 class PackingDetailSerializer(serializers.ModelSerializer):
     class Meta:
