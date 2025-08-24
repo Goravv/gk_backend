@@ -5,3 +5,8 @@ from .models import PackingDetail
 @admin.register(PackingDetail)
 class packingList(admin.ModelAdmin):
     list_display = [field.name for field in PackingDetail._meta.fields]
+
+
+
+
+    

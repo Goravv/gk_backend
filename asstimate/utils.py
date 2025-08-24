@@ -102,7 +102,7 @@ def populate_merged_items(client,client_detail):
         )
 
     if to_create:
-        MergedItem.objects.bulk_create(to_create)
+        MergedItem.objects.bulk_create(to_create, ignore_conflicts=True)
     return missing_part
 
 

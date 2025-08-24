@@ -26,8 +26,6 @@ class Stock(models.Model):
     qty = models.IntegerField()
     brand_name = models.CharField(max_length=100)
 
-    class Meta:
-        unique_together = ('client', 'part_no')  # ensures no duplicate part_no for same client
 
     def __str__(self):
         return f"{self.part_no} ({self.client})"

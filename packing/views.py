@@ -251,6 +251,8 @@ class PackingViewSet(viewsets.ModelViewSet):
             "updated_count": len(to_update),
             "not_found": not_found
         }, status=status.HTTP_200_OK)
+    
+    
     @action(detail=False, methods=['post'], url_path='update_row_list')
     def update_row_list(self, request):
         client_name = request.data.get('client_name')
@@ -364,7 +366,6 @@ class PackingViewSet(viewsets.ModelViewSet):
             part_no = str(row["part_no"]).strip()
             net_wt= str(row["net_wt"]).strip()
             count = 1
-            print(part_no,net_wt,count)
             objs_to_create.append(NetWeight(
                 part_no=part_no,
                 net_wt=net_wt,
