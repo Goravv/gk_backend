@@ -329,7 +329,7 @@ class PackingViewSet(viewsets.ModelViewSet):
             if part_no in existing_packing_map:
                 packing = existing_packing_map[part_no]
                 packing.description = description
-                packing.qty += qty
+                packing.qty = qty
                 packing.stock_qty = stock_qty
                 updated_packings.append(packing)
             else:
