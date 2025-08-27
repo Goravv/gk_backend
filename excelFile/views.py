@@ -84,7 +84,7 @@ class UploadExcelView(APIView):
 
 class ExcelDataListView(APIView):
     def get(self, request):
-        data = ExcelData.objects.all()
+        data = ExcelData.objects.all(user=request.user)
         serializer = ExcelDataSerializer(data, many=True)
         return Response(serializer.data)
 
@@ -92,7 +92,7 @@ class ExcelDataListView(APIView):
 class ExcelDataDetailView(APIView):
     def get(self, request, pk):
         try:
-            obj = ExcelData.objects.get(pk=pk)
+            obj = ExcelData.objects.get(pk=pk,user=request.user)
             serializer = ExcelDataSerializer(obj)
             return Response(serializer.data)
         except ExcelData.DoesNotExist:
