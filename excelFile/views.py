@@ -8,47 +8,44 @@ from collections import defaultdict
 from django.db import transaction
 
 
-
 class UploadExcelView(APIView):
     def post(self, request, format=None):
         file = request.FILES.get('file')
+        brand_name = request.data.get('brand_name')
+
         if not file:
             return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+        if not brand_name:
+            return Response({"error": "No brand_name found"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Read Excel
         try:
             df = pd.read_excel(file, engine='openpyxl')
         except Exception as e:
             return Response({"error": f"Failed to read Excel file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Strip column names
+        # Clean column names
         df.columns = [col.strip() for col in df.columns]
 
-        required_columns = [
-            'Item Code', 'Item Description', 
-            'MRP - per unit', 'HSN Code', 'GST %'
-        ]
-
-        # Check for missing columns
+        required_columns = ['part_no', 'description', 'mrp_per_unit', 'hsn_code', 'gst']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             return Response({"error": f"Missing columns: {', '.join(missing_columns)}"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Drop rows with empty Item Code
-        df = df.dropna(subset=['Item Code'])
-        # Convert HSN Code to integer
-        try:
-            def safe_hsn(val):
-                try:
-                    return int(str(val).strip())
-                except (ValueError, TypeError):
-                    return 0
+        # Drop empty part_no
+        df = df.dropna(subset=['part_no'])
 
-            df['HSN Code'] = df['HSN Code'].apply(safe_hsn)
-        except Exception as e:
-            return Response({"error": f"HSN Code conversion failed: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        # Convert hsn_code safely
+        def safe_hsn(val):
+            try:
+                return int(str(val).strip())
+            except (ValueError, TypeError):
+                return 0
 
-        # Clean GST % field for CharField, store as string like "18%"
+        df['hsn_code'] = df['hsn_code'].apply(safe_hsn)
+
+        # Keep valid GST
         def is_valid_gst(val):
             try:
                 int(str(val).strip())
@@ -56,55 +53,33 @@ class UploadExcelView(APIView):
             except (ValueError, TypeError):
                 return False
 
-        df = df[df['GST %'].apply(is_valid_gst)]
+        df = df[df['gst'].apply(is_valid_gst)]
+        df['gst'] = df['gst'].apply(lambda val: int(str(val).strip()))
 
-        df['GST %'] = df['GST %'].apply(lambda val: int(str(val).strip()))
-
-        # Create a mapping of Item Code to row
-        incoming_data = {
-            str(row['Item Code']).strip(): row for _, row in df.iterrows()
-        }
-
-        # Fetch existing items
-        existing_items = ExcelData.objects.filter(item_code__in=incoming_data.keys())
-        existing_map = {item.item_code: item for item in existing_items}
-
-        items_to_create = []
-        items_to_update = []
-
-        for item_code, row in incoming_data.items():
-            if item_code in existing_map:
-                obj = existing_map[item_code]
-                obj.item_description = row['Item Description']
-                obj.mrp_per_unit = row['MRP - per unit']
-                obj.hsn_code = row['HSN Code']
-                obj.gst_percent = row['GST %']
-                items_to_update.append(obj)
-            else:
-                items_to_create.append(
-                    ExcelData(
-                        item_code=item_code,
-                        item_description=row['Item Description'],
-                        mrp_per_unit=row['MRP - per unit'],
-                        hsn_code=row['HSN Code'],
-                        gst_percent=row['GST %']
-                    )
-                )
+        # Build objects
+        items_to_create = [
+            ExcelData(
+                brand_name=brand_name,
+                part_no=str(row['part_no']).strip(),
+                description=row['description'],
+                mrp_per_unit=row['mrp_per_unit'],
+                hsn_code=row['hsn_code'],
+                gst_percent=row['gst']
+            )
+            for _, row in df.iterrows()
+        ]
 
         with transaction.atomic():
-            if items_to_create:
-                ExcelData.objects.bulk_create(items_to_create, batch_size=1000)
-            if items_to_update:
-                ExcelData.objects.bulk_update(
-                    items_to_update,
-                    ['item_description', 'mrp_per_unit', 'hsn_code', 'gst_percent'],
-                    batch_size=1000
-                )
+            # delete old records for this brand_name
+            ExcelData.objects.filter(brand_name=brand_name).delete()
+
+            # insert fresh ones
+            ExcelData.objects.bulk_create(items_to_create, batch_size=1000)
 
         return Response({
-            "message": f"{len(items_to_create)} created, {len(items_to_update)} updated."
+            "message": f"{len(items_to_create)} records inserted for brand {brand_name}, old records deleted."
         }, status=status.HTTP_201_CREATED)
-     
+
 class ExcelDataListView(APIView):
     def get(self, request):
         data = ExcelData.objects.all()
