@@ -12,6 +12,7 @@ class UploadExcelView(APIView):
     def post(self, request, format=None):
         file = request.FILES.get('file')
         brand_name = request.data.get('brand_name')
+        user=request.user
 
         if not file:
             return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
@@ -64,14 +65,15 @@ class UploadExcelView(APIView):
                 description=row['description'],
                 mrp_per_unit=row['mrp_per_unit'],
                 hsn_code=row['hsn_code'],
-                gst_percent=row['gst']
+                gst_percent=row['gst'],
+                user=user
             )
             for _, row in df.iterrows()
         ]
 
         with transaction.atomic():
             # delete old records for this brand_name
-            ExcelData.objects.filter(brand_name=brand_name).delete()
+            ExcelData.objects.filter(brand_name=brand_name,user=user).delete()
 
             # insert fresh ones
             ExcelData.objects.bulk_create(items_to_create, batch_size=1000)
