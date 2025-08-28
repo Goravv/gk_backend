@@ -49,7 +49,7 @@ class invoiceGenrate(APIView):
         for item in merged_items:
             
             try:
-                related_mrp_data = mrp_data.filter(item_code=item.part_no).first()
+                related_mrp_data = mrp_data.filter(part_no=item.part_no).first()
                 if not related_mrp_data:
                     skipped_items.append(item.part_no)
                     continue
