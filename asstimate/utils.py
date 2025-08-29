@@ -22,7 +22,7 @@ def populate_merged_items(client,client_detail):
     # Fetch all ExcelData rows needed in a single query
     part_nos = [item.part_no for item in items if item.part_no]
     excel_data_map = {
-        e.item_code: e for e in ExcelData.objects.filter(item_code__in=part_nos)
+        e.part_no: e for e in ExcelData.objects.filter(part_no__in=part_nos)
     }
 
     # Fetch existing MergedItems for this client
@@ -43,7 +43,7 @@ def populate_merged_items(client,client_detail):
             excel = excel_data_map.get(part_no_with_zero)
             if not excel:
                 try:
-                    excel = ExcelData.objects.get(item_code=part_no_with_zero)
+                    excel = ExcelData.objects.get(part_no=part_no_with_zero)
                     excel_data_map[part_no_with_zero] = excel
                     part_no = part_no_with_zero  
                 except ExcelData.DoesNotExist:
