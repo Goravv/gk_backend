@@ -5,7 +5,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'address',
+            'id', 'username', 'email', 'address','permission',
             'bank_name', 'account_name', 'account_number',
             'ifsc_code', 'ad_code', 'swift_code',
             'exporter_reference_number', 'pan', 'iec',
@@ -24,7 +24,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
             'bank_name', 'account_name', 'account_number',
             'ifsc_code', 'ad_code', 'swift_code',
             'exporter_reference_number', 'pan', 'iec',
-            'parent_id'
+            'parent_id','is_staff','permission'
         ]
 
     def create(self, validated_data):
