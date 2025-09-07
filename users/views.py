@@ -129,3 +129,37 @@ class RegistrationView(generics.CreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         self.perform_create(serializer)
         return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+
+
+
+class UserPermissionView(APIView):
+
+    def get(self, request):
+        """Get all child users for the requested user"""
+        parent_id = request.user.id
+        users = CustomUser.objects.filter(parent_id=parent_id).values("id", "username", "permission")
+
+        return Response(list(users), status=status.HTTP_200_OK)
+
+    def put(self, request):
+        """Update permissions for child users"""
+        updates = request.data  # expecting array of {user_id, permission}
+
+        if not isinstance(updates, list):
+            return Response({"error": "Expected a list of objects"}, status=status.HTTP_400_BAD_REQUEST)
+
+        updated_users = []
+
+        for item in updates:
+            user_id = item.get("id")
+            permission = item.get("permission")
+
+            try:
+                user = CustomUser.objects.get(id=user_id, parent_id=request.user.id)
+                user.permission = permission
+                user.save()
+                updated_users.append({"id": user.id, "username": user.username, "permission": user.permission})
+            except CustomUser.DoesNotExist:
+                continue  # skip invalid users
+
+        return Response(updated_users, status=status.HTTP_200_OK)

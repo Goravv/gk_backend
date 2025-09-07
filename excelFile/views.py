@@ -12,7 +12,7 @@ class UploadExcelView(APIView):
     def post(self, request, format=None):
         file = request.FILES.get('file')
         brand_name = request.data.get('brand_name')
-        user=request.user
+        user=request.user if request.user.is_staff else request.user.parent_id
 
         if not file:
             return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
@@ -84,7 +84,7 @@ class UploadExcelView(APIView):
 
 class ExcelDataListView(APIView):
     def get(self, request):
-        data = ExcelData.objects.all(user=request.user)
+        data = ExcelData.objects.filter(user=request.user if request.user.is_staff else request.user.parent_id)
         serializer = ExcelDataSerializer(data, many=True)
         return Response(serializer.data)
 
@@ -92,7 +92,7 @@ class ExcelDataListView(APIView):
 class ExcelDataDetailView(APIView):
     def get(self, request, pk):
         try:
-            obj = ExcelData.objects.get(pk=pk,user=request.user)
+            obj = ExcelData.objects.get(pk=pk,user=request.user if request.user.is_staff else request.user.parent_id)
             serializer = ExcelDataSerializer(obj)
             return Response(serializer.data)
         except ExcelData.DoesNotExist:
@@ -104,3 +104,5 @@ class DeleteAllExcelDataView(APIView):
         deleted_count, _ = ExcelData.objects.all().delete()
         return Response({"message": f"{deleted_count} entries deleted"},
                         status=status.HTTP_204_NO_CONTENT)
+
+
