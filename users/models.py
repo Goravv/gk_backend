@@ -28,6 +28,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField()
     address = models.TextField(blank=True, null=True)
     permission=models.BooleanField()
+    state=models.CharField(max_length=30)
 
     # Bank details
     bank_name = models.CharField(max_length=255, blank=True, null=True)

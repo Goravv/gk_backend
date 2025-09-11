@@ -14,6 +14,7 @@ class Client(models.Model):
     final_destination = models.CharField(max_length=100)
     gst=models.JSONField()
     rupees=models.CharField(max_length=5)
+    state=models.CharField(max_length=30)
     country = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

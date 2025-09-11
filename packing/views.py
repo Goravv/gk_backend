@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 import pandas as pd
 import json
+from users.models import CustomUser
 
 
 
@@ -373,6 +374,9 @@ class PackingViewSet(viewsets.ModelViewSet):
             ))
         NetWeight.objects.bulk_create(objs_to_create, ignore_conflicts=True)
         return Response({"message": "Data uploaded successfully"}, status=200)
+
+
+
 class StockViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = StockSerializer
@@ -406,7 +410,7 @@ class StockViewSet(viewsets.ModelViewSet):
 
         # check if stock already exists
         stock, created = Stock.objects.get_or_create(
-            user=request.user,
+           user = request.user if request.user.is_staff else  CustomUser.objects.get(id=request.user.parent_id),
             client=client,
             part_no=part_no,
             defaults={
@@ -439,7 +443,7 @@ class StockViewSet(viewsets.ModelViewSet):
     def upload_excel(self, request):
         file = request.FILES.get("file")
         client_id = request.data.get("client_id")
-
+        print("hello")
         if not file:
             return Response({"error": "No file uploaded"}, status=400)
         if not client_id:
@@ -468,7 +472,7 @@ class StockViewSet(viewsets.ModelViewSet):
         df["qty"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0).astype(int)
 
         part_nos = df["part_no"].unique()
-        user = request.user
+        user = request.user if request.user.is_staff else  CustomUser.objects.get(id=request.user.parent_id)
 
         # fetch existing stocks for this user+client+part_no
         existing_stocks = Stock.objects.filter(user=user, client=client, part_no__in=part_nos)
