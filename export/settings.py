@@ -45,7 +45,7 @@ DATABASES = {
         'NAME': os.getenv("MYSQL_DATABASE", "gk_database"),
         'USER': os.getenv("MYSQL_USER", "admin"),
         'PASSWORD': os.getenv("MYSQL_PASSWORD", "Gaurav12318"),
-        'HOST': os.getenv("MYSQL_HOST", "database-1.c1oq8qkgg1y0.ap-south-1.rds.amazonaws.com"),
+        'HOST': os.getenv("MYSQL_HOST", "database-1-recovered.c1oq8qkgg1y0.ap-south-1.rds.amazonaws.com"),
         'PORT': os.getenv("MYSQL_PORT", "3306"),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
